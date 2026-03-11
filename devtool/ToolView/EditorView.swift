@@ -11,18 +11,16 @@ import AppKit
 final class FlippedClipView: NSClipView {
     override var isFlipped: Bool { true }
 }
+
 final class SolidScrollView: NSScrollView {
     override var allowsVibrancy: Bool { false }
     
-    // Tắt content background view
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
+    override func tile() {
+        super.tile()
         for sub in subviews {
-            for child in sub.subviews {
-                if let effect = child as? NSVisualEffectView {
-                    effect.state = .inactive
-                    effect.material = .windowBackground
-                }
+            let name = String(describing: type(of: sub))
+            if name.contains("ContentBackground") {
+                sub.alphaValue = 0  // ẩn toàn bộ _NSScrollViewContentBackgroundView
             }
         }
     }
@@ -30,12 +28,29 @@ final class SolidScrollView: NSScrollView {
 
 final class SolidTextView: NSTextView {
     override var allowsVibrancy: Bool { false }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        // Fill background trực tiếp — không qua system pipeline
+        NSColor.textBackgroundColor.setFill()
+        dirtyRect.fill()
+        
+        guard let lm = layoutManager, let tc = textContainer else {
+            super.draw(dirtyRect)
+            return
+        }
+        
+        // Draw trực tiếp qua NSLayoutManager — giống LineNumberRulerView
+        let origin = NSPoint(x: textContainerInset.width,
+                             y: textContainerInset.height)
+        let glyphRange = lm.glyphRange(forBoundingRect: dirtyRect, in: tc)
+        lm.drawBackground(forGlyphRange: glyphRange, at: origin)
+        lm.drawGlyphs(forGlyphRange: glyphRange, at: origin)
+    }
 }
 
 // MARK: - MiniMapEditorView
-
 struct MiniMapEditorView: View {
-
+    
     @State private var text: String = """
 // Notepad++ style editor — MiniMap + Line Numbers + Auto-Save
 
@@ -54,9 +69,9 @@ for i in 1...120 {
     @State private var autosaveEnabled        = true
     @State private var savingState            = SavingState.idle
     @State private var lastError: String?     = nil
-
+    
     enum SavingState { case idle, saving, saved, error }
-
+    
     var body: some View {
         VStack(spacing: 0) {
             toolbar
@@ -84,7 +99,7 @@ for i in 1...120 {
         }
         .onAppear { if fileURL == nil { fileURL = draftURL() } }
     }
-
+    
     // MARK: Toolbar
     private var toolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -123,7 +138,7 @@ for i in 1...120 {
         }
         .fixedSize(horizontal: false, vertical: true)
     }
-
+    
     @ViewBuilder private var statusIcon: some View {
         switch savingState {
         case .idle:
@@ -136,7 +151,7 @@ for i in 1...120 {
             Label("Error",   systemImage: "xmark.octagon").foregroundColor(.red)
         }
     }
-
+    
     private var statusBar: some View {
         HStack {
             if let e = lastError {
@@ -149,7 +164,7 @@ for i in 1...120 {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
     }
-
+    
     // MARK: File actions
     private func openDoc() {
         let p = NSOpenPanel()
@@ -164,7 +179,7 @@ for i in 1...120 {
             }
         }
     }
-
+    
     private func saveAsDoc() {
         let p = NSSavePanel()
         p.allowedFileTypes = ["txt"]
@@ -179,7 +194,7 @@ for i in 1...120 {
             }
         }
     }
-
+    
     private func draftURL() -> URL {
         let fm  = FileManager.default
         let dir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -188,7 +203,7 @@ for i in 1...120 {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("untitled.txt")
     }
-
+    
     private func fileLabel() -> String {
         guard let u = fileURL else { return "Draft" }
         return u.path.contains("/Drafts/untitled.txt") ? "Draft → untitled.txt" : u.path
@@ -198,18 +213,18 @@ for i in 1...120 {
 // MARK: - EditorRepresentable (trả về NSScrollView trực tiếp)
 
 struct EditorRepresentable: NSViewRepresentable {
-
+    
     @Binding var text:            String
     @Binding var fontSize:        CGFloat
     @Binding var autosaveEnabled: Bool
     @Binding var fileURL:         URL?
     @Binding var savingState:     MiniMapEditorView.SavingState
     @Binding var lastError:       String?
-
+    
     func makeCoordinator() -> Coordinator { Coordinator(self) }
-
+    
     func makeNSView(context: Context) -> NSScrollView {
-
+        
         // ── 1. TextKit 1 stack thủ công ──────────────────────────────
         let storage = NSTextStorage()
         let lm      = NSLayoutManager()
@@ -218,7 +233,7 @@ struct EditorRepresentable: NSViewRepresentable {
         tc.lineFragmentPadding = 6
         lm.addTextContainer(tc)
         storage.addLayoutManager(lm)
-
+        
         let tv = SolidTextView(
             frame: NSRect(x: 0, y: 0, width: 600, height: 400),
             textContainer: tc
@@ -237,13 +252,12 @@ struct EditorRepresentable: NSViewRepresentable {
         tv.isAutomaticTextReplacementEnabled   = false
         tv.isGrammarCheckingEnabled            = false
         tv.isContinuousSpellCheckingEnabled    = false
-
+        
         // ── 2. Màu & font ─────────────────────────────────────────────
-        let font   = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        // Dùng labelColor thay vì textColor — đậm hơn, không bị wash out
-        let fgColor = NSColor.labelColor
+        let font    = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        let fgColor = NSColor.black
         let bgColor = NSColor.textBackgroundColor
-
+        
         tv.font                   = font
         tv.drawsBackground        = true
         tv.backgroundColor        = bgColor
@@ -252,55 +266,34 @@ struct EditorRepresentable: NSViewRepresentable {
         tv.selectedTextAttributes = [.backgroundColor: NSColor.selectedTextBackgroundColor]
         tv.typingAttributes       = [.font: font, .foregroundColor: fgColor]
         
-        
-        tv.wantsLayer = true
-        tv.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        tv.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-
-
         // ── 3. Set text qua textStorage ───────────────────────────────
         storage.setAttributedString(NSAttributedString(
             string: text,
             attributes: [.font: font, .foregroundColor: fgColor]
         ))
-
-        // ── 4. ScrollView ─────────────────────────────────────────────
+        //
+        //        // ── 4. ScrollView ─────────────────────────────────────────────
         let sv = SolidScrollView()
         sv.borderType            = .noBorder
         sv.hasVerticalScroller   = true
         sv.hasHorizontalScroller = false
         sv.autohidesScrollers    = true
         sv.drawsBackground       = false
-        sv.backgroundColor       = .textBackgroundColor
+        sv.backgroundColor       = bgColor
         
-        DispatchQueue.main.async { [weak sv] in
-            guard let sv = sv else { return }
-            for sub in sv.subviews {
-                // _NSScrollViewContentBackgroundView
-                for child in sub.subviews {
-                    if let effect = child as? NSVisualEffectView {
-                        effect.state    = .inactive
-                        effect.material = .windowBackground
-                        effect.wantsLayer = true
-                        effect.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-                    }
-                }
-            }
-        }
-
         // FlippedClipView để fix tọa độ Y
         let clip = FlippedClipView()
         clip.drawsBackground = true
-        clip.backgroundColor = .textBackgroundColor
+        clip.backgroundColor = bgColor
         sv.contentView  = clip   // TRƯỚC documentView
         sv.documentView = tv
-
-        // ── 5. Line number ruler ──────────────────────────────────────
+        //
+        //        // ── 5. Line number ruler ──────────────────────────────────────
         let ruler = LineNumberRulerView(textView: tv)
         sv.hasVerticalRuler  = true
         sv.rulersVisible     = true
         sv.verticalRulerView = ruler
-
+        
         // ── 6. Notifications ──────────────────────────────────────────
         sv.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
@@ -315,14 +308,14 @@ struct EditorRepresentable: NSViewRepresentable {
             name: NSView.boundsDidChangeNotification,
             object: sv.contentView
         )
-
+        
         context.coordinator.tv    = tv
         context.coordinator.sv    = sv
         context.coordinator.ruler = ruler
         context.coordinator.tc    = tc
         context.coordinator.lm    = lm
         context.coordinator.parent = self
-
+        
         // ── 7. First layout ───────────────────────────────────────────
         DispatchQueue.main.async { [weak tv, weak sv, weak ruler] in
             guard let tv = tv, let sv = sv else { return }
@@ -333,40 +326,16 @@ struct EditorRepresentable: NSViewRepresentable {
             ruler?.invalidateLineCache()
             ruler?.needsDisplay = true
         }
-
+        
         context.coordinator.scheduleAutosave()
         
         DispatchQueue.main.async { [weak sv] in
-            // Tìm và disable NSVisualEffectView cha
-            var v: NSView? = sv
-            while let parent = v?.superview {
-                if let effect = parent as? NSVisualEffectView {
-                    effect.material = .windowBackground
-                    effect.blendingMode = .behindWindow
-                    effect.state = .inactive
-                }
-                v = parent
-            }
+            sv?.window?.appearance = NSAppearance(named: .aqua)
         }
-
-        // In ra toàn bộ view hierarchy sau khi load
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak sv] in
-            func printHierarchy(_ view: NSView?, depth: Int = 0) {
-                guard let view = view else { return }
-                let indent = String(repeating: "  ", count: depth)
-                print("\(indent)\(type(of: view)) frame:\(view.frame) alpha:\(view.alphaValue) hidden:\(view.isHidden)")
-                if let effect = view as? NSVisualEffectView {
-                    print("\(indent)  → material:\(effect.material.rawValue) state:\(effect.state.rawValue) allowsVibrancy:\(effect.allowsVibrancy)")
-                }
-                view.subviews.forEach { printHierarchy($0, depth: depth + 1) }
-            }
-            var root: NSView? = sv
-            while let p = root?.superview { root = p }
-            printHierarchy(root)
-        }
+        //
         return sv
     }
-
+    
     func updateNSView(_ sv: NSScrollView, context: Context) {
         guard
             let tv    = context.coordinator.tv,
@@ -374,11 +343,10 @@ struct EditorRepresentable: NSViewRepresentable {
             let lm    = context.coordinator.lm,
             let tc    = context.coordinator.tc
         else { return }
-
+        
         let font    = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         let fgColor = NSColor.black
-
-        // Text thay đổi từ SwiftUI
+        
         if tv.string != text {
             tv.textStorage?.setAttributedString(NSAttributedString(
                 string: text,
@@ -389,8 +357,7 @@ struct EditorRepresentable: NSViewRepresentable {
             ruler.invalidateLineCache()
             ruler.needsDisplay = true
         }
-
-        // Font size thay đổi
+        
         if tv.font?.pointSize != fontSize {
             tv.font = font
             tv.textColor = fgColor
@@ -408,18 +375,17 @@ struct EditorRepresentable: NSViewRepresentable {
             ruler.invalidateLineCache()
             ruler.needsDisplay = true
         }
-
-        // containerSize update khi view resize
+        
         let w = max(sv.contentSize.width - 2, 100)
         if abs(tc.containerSize.width - w) > 4 {
             tc.containerSize = NSSize(width: w, height: 1e7)
             lm.ensureLayout(for: tc)
             tv.sizeToFit()
         }
-
+        
         context.coordinator.parent = self
     }
-
+    
     // MARK: Coordinator
     class Coordinator: NSObject {
         var parent: EditorRepresentable
@@ -429,9 +395,9 @@ struct EditorRepresentable: NSViewRepresentable {
         var tc: NSTextContainer?
         var lm: NSLayoutManager?
         private var debounce: DispatchWorkItem?
-
+        
         init(_ p: EditorRepresentable) { parent = p }
-
+        
         @objc func textChanged(_ n: Notification) {
             guard let tv = tv else { return }
             if parent.text != tv.string { parent.text = tv.string }
@@ -439,11 +405,11 @@ struct EditorRepresentable: NSViewRepresentable {
             ruler?.needsDisplay = true
             scheduleAutosave()
         }
-
+        
         @objc func scrolled(_ n: Notification) {
             ruler?.needsDisplay = true
         }
-
+        
         func scheduleAutosave() {
             debounce?.cancel()
             guard parent.autosaveEnabled else { return }
@@ -452,7 +418,7 @@ struct EditorRepresentable: NSViewRepresentable {
             parent.savingState = .saving
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: w)
         }
-
+        
         private func save() {
             guard let url = parent.fileURL else {
                 parent.lastError = "No file URL"; parent.savingState = .error; return
@@ -471,12 +437,12 @@ struct EditorRepresentable: NSViewRepresentable {
 // MARK: - MiniMapRepresentable
 
 struct MiniMapRepresentable: NSViewRepresentable {
-
+    
     @Binding var text:        String
     @Binding var fontSize:    CGFloat
     @Binding var scaleFactor: CGFloat
     @Binding var opacity:     Double
-
+    
     func makeNSView(context: Context) -> MiniMapView {
         let mm = MiniMapView()
         mm.scaleFactor  = scaleFactor
@@ -485,7 +451,7 @@ struct MiniMapRepresentable: NSViewRepresentable {
         mm.currentFont  = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         return mm
     }
-
+    
     func updateNSView(_ mm: MiniMapView, context: Context) {
         mm.scaleFactor  = scaleFactor
         mm.opacityValue = opacity
@@ -498,10 +464,10 @@ struct MiniMapRepresentable: NSViewRepresentable {
 // MARK: - Line Number Ruler
 
 final class LineNumberRulerView: NSRulerView {
-
+    
     weak var textView: NSTextView?
     private var lineStarts: [Int] = [0]
-
+    
     init(textView: NSTextView) {
         self.textView = textView
         super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
@@ -510,26 +476,25 @@ final class LineNumberRulerView: NSRulerView {
         invalidateLineCache()
     }
     required init(coder: NSCoder) { super.init(coder: coder) }
-
+    
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard let tv = textView,
               let lm = tv.layoutManager,
               let tc = tv.textContainer else { return }
-
-        // Background
-        NSColor.textBackgroundColor.withAlphaComponent(0.95).setFill()
+        
+        NSColor.textBackgroundColor.withAlphaComponent(0).setFill()
         rect.fill()
-
+        
         let visibleRect = scrollView?.contentView.bounds ?? .zero
         let gr = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
         if lineStarts.isEmpty { invalidateLineCache() }
-
+        
         let fSize = max((tv.font?.pointSize ?? 12) - 2, 9)
         let attrs: [NSAttributedString.Key: Any] = [
             .foregroundColor: NSColor.secondaryLabelColor,
             .font: NSFont.monospacedDigitSystemFont(ofSize: fSize, weight: .regular)
         ]
-
+        
         var idx = gr.location
         let end = gr.location + gr.length
         while idx < end {
@@ -548,21 +513,19 @@ final class LineNumberRulerView: NSRulerView {
             if next <= idx { break }
             idx = next
         }
-
-        // Divider
+        
         NSColor.separatorColor.setStroke()
         let path = NSBezierPath()
         path.move(to: NSPoint(x: bounds.maxX - 0.5, y: bounds.minY))
         path.line(to: NSPoint(x: bounds.maxX - 0.5, y: bounds.maxY))
         path.lineWidth = 1
         path.stroke()
-
-        // Dynamic width
+        
         let digits = String(max(1, lineStarts.count)).count
         let needed = CGFloat(8 + digits * 8 + 12)
         if abs(ruleThickness - needed) > 0.5 { ruleThickness = needed }
     }
-
+    
     func invalidateLineCache() {
         guard let tv = textView else { lineStarts = [0]; return }
         let s = tv.string as NSString
@@ -575,7 +538,7 @@ final class LineNumberRulerView: NSRulerView {
         }
         lineStarts = a.isEmpty ? [0] : a
     }
-
+    
     private func lineIndex(for loc: Int) -> Int {
         var lo = 0, hi = lineStarts.count - 1, ans = 0
         while lo <= hi {
@@ -589,26 +552,27 @@ final class LineNumberRulerView: NSRulerView {
 // MARK: - MiniMap View
 
 final class MiniMapView: NSView {
-
+    
     var scaleFactor:  CGFloat = 0.18
     var opacityValue: Double  = 0.35
     var currentText:  String  = ""
     var currentFont:  NSFont  = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-
+    
     private var miniStorage: NSTextStorage?
     private var miniLM:      NSLayoutManager?
     private var miniTC:      NSTextContainer?
-
+    
     override var isFlipped: Bool { true }
-
+    override var allowsVibrancy: Bool { false }
+    
     func refresh() {
         buildStorage()
         needsDisplay = true
     }
-
+    
     private func buildStorage() {
         let w = max(bounds.width / scaleFactor, 200)
-
+        
         if miniStorage == nil {
             let st = NSTextStorage()
             let lm = NSLayoutManager()
@@ -618,28 +582,28 @@ final class MiniMapView: NSView {
             st.addLayoutManager(lm)
             miniStorage = st; miniLM = lm; miniTC = tc
         }
-
+        
         miniTC?.containerSize = NSSize(width: w, height: 1e7)
-
+        
         miniStorage?.beginEditing()
         miniStorage?.setAttributedString(NSAttributedString(
             string: currentText,
             attributes: [
                 .font: currentFont,
-                .foregroundColor: NSColor.labelColor.withAlphaComponent(opacityValue)
+                .foregroundColor: NSColor.black.withAlphaComponent(opacityValue)
             ]
         ))
         miniStorage?.endEditing()
         miniLM?.ensureLayout(for: miniTC!)
     }
-
+    
     override func draw(_ dirtyRect: NSRect) {
         NSColor.textBackgroundColor.setFill()
         bounds.fill()
-
+        
         if miniStorage == nil { buildStorage() }
         guard let lm = miniLM, let st = miniStorage else { return }
-
+        
         NSGraphicsContext.current?.saveGraphicsState()
         let t = NSAffineTransform()
         t.scale(by: scaleFactor)
