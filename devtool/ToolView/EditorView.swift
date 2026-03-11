@@ -11,6 +11,26 @@ import AppKit
 final class FlippedClipView: NSClipView {
     override var isFlipped: Bool { true }
 }
+final class SolidScrollView: NSScrollView {
+    override var allowsVibrancy: Bool { false }
+    
+    // Tắt content background view
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        for sub in subviews {
+            for child in sub.subviews {
+                if let effect = child as? NSVisualEffectView {
+                    effect.state = .inactive
+                    effect.material = .windowBackground
+                }
+            }
+        }
+    }
+}
+
+final class SolidTextView: NSTextView {
+    override var allowsVibrancy: Bool { false }
+}
 
 // MARK: - MiniMapEditorView
 
@@ -199,7 +219,7 @@ struct EditorRepresentable: NSViewRepresentable {
         lm.addTextContainer(tc)
         storage.addLayoutManager(lm)
 
-        let tv = NSTextView(
+        let tv = SolidTextView(
             frame: NSRect(x: 0, y: 0, width: 600, height: 400),
             textContainer: tc
         )
@@ -231,6 +251,12 @@ struct EditorRepresentable: NSViewRepresentable {
         tv.insertionPointColor    = fgColor
         tv.selectedTextAttributes = [.backgroundColor: NSColor.selectedTextBackgroundColor]
         tv.typingAttributes       = [.font: font, .foregroundColor: fgColor]
+        
+        
+        tv.wantsLayer = true
+        tv.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        tv.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+
 
         // ── 3. Set text qua textStorage ───────────────────────────────
         storage.setAttributedString(NSAttributedString(
@@ -239,13 +265,28 @@ struct EditorRepresentable: NSViewRepresentable {
         ))
 
         // ── 4. ScrollView ─────────────────────────────────────────────
-        let sv = NSScrollView()
+        let sv = SolidScrollView()
         sv.borderType            = .noBorder
         sv.hasVerticalScroller   = true
         sv.hasHorizontalScroller = false
         sv.autohidesScrollers    = true
-        sv.drawsBackground       = true
+        sv.drawsBackground       = false
         sv.backgroundColor       = .textBackgroundColor
+        
+        DispatchQueue.main.async { [weak sv] in
+            guard let sv = sv else { return }
+            for sub in sv.subviews {
+                // _NSScrollViewContentBackgroundView
+                for child in sub.subviews {
+                    if let effect = child as? NSVisualEffectView {
+                        effect.state    = .inactive
+                        effect.material = .windowBackground
+                        effect.wantsLayer = true
+                        effect.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+                    }
+                }
+            }
+        }
 
         // FlippedClipView để fix tọa độ Y
         let clip = FlippedClipView()
@@ -308,6 +349,21 @@ struct EditorRepresentable: NSViewRepresentable {
             }
         }
 
+        // In ra toàn bộ view hierarchy sau khi load
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak sv] in
+            func printHierarchy(_ view: NSView?, depth: Int = 0) {
+                guard let view = view else { return }
+                let indent = String(repeating: "  ", count: depth)
+                print("\(indent)\(type(of: view)) frame:\(view.frame) alpha:\(view.alphaValue) hidden:\(view.isHidden)")
+                if let effect = view as? NSVisualEffectView {
+                    print("\(indent)  → material:\(effect.material.rawValue) state:\(effect.state.rawValue) allowsVibrancy:\(effect.allowsVibrancy)")
+                }
+                view.subviews.forEach { printHierarchy($0, depth: depth + 1) }
+            }
+            var root: NSView? = sv
+            while let p = root?.superview { root = p }
+            printHierarchy(root)
+        }
         return sv
     }
 
@@ -320,7 +376,7 @@ struct EditorRepresentable: NSViewRepresentable {
         else { return }
 
         let font    = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        let fgColor = NSColor.labelColor
+        let fgColor = NSColor.black
 
         // Text thay đổi từ SwiftUI
         if tv.string != text {
