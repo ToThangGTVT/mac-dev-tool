@@ -13,5 +13,6 @@ struct devtoolApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowStyle(.automatic)
     }
 }
