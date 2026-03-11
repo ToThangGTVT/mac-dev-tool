@@ -391,7 +391,7 @@ struct RegexTesterToolView: View {
         let res: [MatchInfo] = results.map { r in
             let sub = substring(testString, nsRange: r.range) ?? ""
             var groups: [GroupInfo] = []
-            for idx in 1...max(groupCount, 0) {
+            for idx in 0...groupCount {
                 let gr = r.range(at: idx)
                 if gr.location != NSNotFound {
                     let val = substring(testString, nsRange: gr)

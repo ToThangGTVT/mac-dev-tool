@@ -10,6 +10,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case textCase = "Text Case"
     case regex = "Regex Tester"
     case color = "Color Picker"
+    case editor = "Notepad"
     
     var id: String { rawValue }
     
@@ -32,6 +33,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .regex:
             return "magnifyingglass"
         case .color:
+            return "paintpalette"
+        case .editor:
             return "paintpalette"
         }
     }
@@ -69,6 +72,9 @@ struct ContentView: View {
                     RegexTesterToolView()
                 case .color:
                     ColorPickerToolView()
+                case .editor:
+                    MiniMapEditorView().background(Color.red)
+
                 case .none:
                     Text("Chọn một mục trong sidebar")
                         .font(.title2)
