@@ -3,7 +3,7 @@ import AppKit
 
 
 struct ContentView: View {
-    @State private var selection: SidebarItem? = .home
+    @State private var selection: SidebarItem? = .editor
 
     var body: some View {
         NavigationSplitView {
@@ -16,16 +16,14 @@ struct ContentView: View {
         } detail: {
             Group {
                 switch selection {
-                case .home:     HomeView()
-                case .profile:  ProfileView()
-                case .settings: SettingsView()
+                case .editor:   NotePadEditor()
                 case .base64:   Base64ToolView()
                 case .hash:     HashToolView()
                 case .rsaHash:  RSAToolView()
                 case .textCase: TextCaseToolView()
                 case .regex:    RegexTesterToolView()
                 case .color:    ColorPickerToolView()
-                case .editor:   MiniMapEditorView()
+                case .settings: SettingsView()
                 case .none:
                     Text("Chọn một mục trong sidebar")
                         .font(.title2)
@@ -33,7 +31,6 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // ✅ Fix vibrancy: khi chuyển sang editor, disable NSVisualEffectView
             .background(VibrancyKiller())
         }
         .frame(minWidth: 700, minHeight: 450)

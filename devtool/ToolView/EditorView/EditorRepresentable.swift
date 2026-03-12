@@ -12,7 +12,7 @@ struct EditorRepresentable: NSViewRepresentable {
     @Binding var fontSize:        CGFloat
     @Binding var autosaveEnabled: Bool
     @Binding var fileURL:         URL?
-    @Binding var savingState:     MiniMapEditorView.SavingState
+    @Binding var savingState:     NotePadEditor.SavingState
     @Binding var lastError:       String?
     let tabID: UUID
 
@@ -162,7 +162,6 @@ struct EditorRepresentable: NSViewRepresentable {
     }
 
     // MARK: - Coordinator
-
     class Coordinator: NSObject {
         var parent: EditorRepresentable
         weak var tv:    NSTextView?
@@ -199,9 +198,11 @@ struct EditorRepresentable: NSViewRepresentable {
             do {
                 try (parent.text.data(using: .utf8) ?? Data()).write(to: url, options: .atomic)
                 parent.lastError = nil; parent.savingState = .saved
+                print("SAVED \(url)")
             } catch {
                 parent.lastError = "Autosave: \(error.localizedDescription)"
                 parent.savingState = .error
+                print("ERROR SAVE!!!")
             }
         }
     }

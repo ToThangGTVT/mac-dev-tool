@@ -9,8 +9,8 @@ struct EditorTab: Identifiable {
     let id: UUID
     var text: String
     var fileURL: URL?
-    var savingState: MiniMapEditorView.SavingState
-    var lastError: String?
+    var savingState: NotePadEditor.SavingState = .idle
+    var lastError: String? = nil
 
     var title: String {
         if let url = fileURL {
