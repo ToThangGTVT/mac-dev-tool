@@ -1,9 +1,13 @@
 import SwiftUI
 import AppKit
 internal import UniformTypeIdentifiers
+internal import Combine
 
 @Observable
 class NotepadViewModel {
+    var showPopupRemoveFIle = false
+    var tabNeedToRemove: EditorTab?
+    
     var tabs: [EditorTab] = []
     var activeTabID: UUID? = nil
     
@@ -22,12 +26,21 @@ class NotepadViewModel {
         activeTabID = tab.id
     }
     
-    func closeTab(_ id: UUID) {
+    func confirmCloseTab(_ tab: EditorTab) {
+        showPopupRemoveFIle = true
+        tabNeedToRemove = tab
+    }
+    
+    func closeTab(_ tab: EditorTab?) {
+        guard let tab = tab else { return }
+        let id = tab.id
         guard let idx = tabs.firstIndex(where: { $0.id == id }) else { return }
-        tabs.remove(at: idx)
         if activeTabID == id {
             activeTabID = tabs.isEmpty ? nil : tabs[min(idx, tabs.count - 1)].id
         }
+        tabs.remove(at: idx)
+        guard let fileURL = tab.fileURL else { return }
+        removeFile(at: fileURL)
     }
     
     func closeOtherTabs(_ id: UUID) {
@@ -55,12 +68,17 @@ class NotepadViewModel {
             guard r == .OK else { return }
             DispatchQueue.main.async {
                 for url in p.urls {
-                    if let content = try? String(contentsOf: url, encoding: .utf8) {
+                    if let content = try? self.readTextFile(from: url) {
                         self.addTab(text: content, fileURL: url)
                     }
                 }
             }
         }
+    }
+    
+    private func readTextFile(from url: URL) throws -> String {
+        let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+        return String(decoding: data, as: UTF8.self)
     }
     
     func saveAsDoc() {
@@ -103,5 +121,48 @@ class NotepadViewModel {
             .appendingPathComponent("Drafts")
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("untitled-\(UUID().uuidString.prefix(8)).txt")
+    }
+    
+    private func removeFile(at url: URL) {
+        let fileManager = FileManager.default
+        
+        // Kiểm tra file có tồn tại hay không trước khi xóa
+        if fileManager.fileExists(atPath: url.path) {
+            do {
+                try fileManager.removeItem(at: url)
+                print("Đã xóa file thành công tại: \(url.path)")
+            } catch {
+                print("Lỗi khi xóa file: \(error.localizedDescription)")
+            }
+        } else {
+            print("File không tồn tại tại đường dẫn này.")
+        }
+    }
+    
+    func initOpen() {
+        getAllDraftFiles().forEach { [weak self] url in
+            guard let self = self else { return }
+            if let content = try? self.readTextFile(from: url) {
+                self.addTab(text: content, fileURL: url)
+            }
+        }
+    }
+    
+    private func getAllDraftFiles() -> [URL] {
+        let fm = FileManager.default
+        
+        let dir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "MiniMapEditor")
+            .appendingPathComponent("Drafts")
+        
+        guard let files = try? fm.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+        
+        return files.filter { $0.pathExtension == "txt" }
     }
 }

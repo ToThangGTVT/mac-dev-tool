@@ -21,7 +21,6 @@ struct MacEditor: NSViewRepresentable {
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
         
-        // Anti-crash properties for AppKit TextView inside SwiftUI
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
