@@ -14,6 +14,7 @@ struct EditorRepresentable: NSViewRepresentable {
     @Binding var fileURL: URL?
     @Binding var savingState: NotePadEditor.SavingState
     @Binding var lastError: String?
+    @Binding var isTextWrapped: Bool
     let tabID: UUID
     
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -21,8 +22,8 @@ struct EditorRepresentable: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let storage = NSTextStorage()
         let lm = NSLayoutManager()
-        let tc = NSTextContainer(size: NSSize(width: 600, height: 1e7))
-        tc.widthTracksTextView = true
+        let tc = NSTextContainer(size: NSSize(width: isTextWrapped ? 600 : 1e7, height: 1e7))
+        tc.widthTracksTextView = isTextWrapped
         tc.lineFragmentPadding = 6
         lm.addTextContainer(tc)
         storage.addLayoutManager(lm)
@@ -32,8 +33,8 @@ struct EditorRepresentable: NSViewRepresentable {
         textView.minSize = .zero
         textView.maxSize  = NSSize(width: 1e7, height: 1e7)
         textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask  = [.width]
+        textView.isHorizontallyResizable = !isTextWrapped
+        textView.autoresizingMask  = isTextWrapped ? [.width] : [.height]
         textView.isRichText  = false
         textView.allowsUndo  = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
@@ -64,7 +65,7 @@ struct EditorRepresentable: NSViewRepresentable {
         let sv = SolidScrollView()
         sv.borderType = .noBorder
         sv.hasVerticalScroller = true
-        sv.hasHorizontalScroller = false
+        sv.hasHorizontalScroller = !isTextWrapped
         sv.autohidesScrollers = true
         sv.drawsBackground = true
         sv.backgroundColor = bgColor
@@ -91,6 +92,10 @@ struct EditorRepresentable: NSViewRepresentable {
             context.coordinator,
             selector: #selector(Coordinator.scrolled(_:)),
             name: NSView.boundsDidChangeNotification, object: sv.contentView)
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.selectionChanged(_:)),
+            name: NSTextView.didChangeSelectionNotification, object: textView)
         
         context.coordinator.tv = textView
         context.coordinator.sv = sv
@@ -149,10 +154,27 @@ struct EditorRepresentable: NSViewRepresentable {
             ruler.invalidateLineCache(); ruler.needsDisplay = true
         }
         
-        let w = max(sv.contentSize.width - 2, 100)
-        if abs(tc.containerSize.width - w) > 4 {
-            tc.containerSize = NSSize(width: w, height: 1e7)
+        if isTextWrapped {
+            let w = max(sv.contentSize.width - 2, 100)
+            if abs(tc.containerSize.width - w) > 4 {
+                tc.containerSize = NSSize(width: w, height: 1e7)
+                lm.ensureLayout(for: tc); tv.sizeToFit()
+            }
+            tc.widthTracksTextView = true
+            tv.isHorizontallyResizable = false
+            tv.autoresizingMask = [.width]
+        } else {
+            if tc.containerSize.width != 1e7 {
+                tc.containerSize = NSSize(width: 1e7, height: 1e7)
+            }
+            tc.widthTracksTextView = false
+            tv.isHorizontallyResizable = true
+            tv.autoresizingMask = [.height]
             lm.ensureLayout(for: tc); tv.sizeToFit()
+        }
+        
+        if sv.hasHorizontalScroller != !isTextWrapped {
+            sv.hasHorizontalScroller = !isTextWrapped
         }
         
         EditorScrollProxy.shared.register(sv, for: tabID)
@@ -181,6 +203,8 @@ struct EditorRepresentable: NSViewRepresentable {
         }
         
         @objc func scrolled(_ n: Notification) { ruler?.needsDisplay = true }
+        
+        @objc func selectionChanged(_ n: Notification) { ruler?.needsDisplay = true }
         
         func scheduleAutosave() {
             debounce?.cancel()

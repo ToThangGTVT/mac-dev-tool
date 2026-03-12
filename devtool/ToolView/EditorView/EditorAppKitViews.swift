@@ -76,17 +76,27 @@ final class SolidTextView: NSTextView {
 
     private func drawCurrentLineHighlight() {
         guard let lm = layoutManager else { return }
-        let len = (string as NSString).length
+        let s = string as NSString
+        let len = s.length
         if len == 0 {
             let r = NSRect(x: 0, y: textContainerInset.height, width: bounds.width, height: 16)
             currentLineColor.setFill(); r.fill(); return
         }
-        let safeChar   = min(selectedRange().location, len - 1)
-        let glyphIndex = lm.glyphIndexForCharacter(at: safeChar)
-        var effectiveRange = NSRange()
-        let lineRect = lm.lineFragmentRect(forGlyphAt: glyphIndex,
+        
+        let sel = selectedRange()
+        let lineRect: NSRect
+        
+        if sel.location == len && lm.extraLineFragmentRect.height > 0 {
+            lineRect = lm.extraLineFragmentRect
+        } else {
+            let safeChar   = min(sel.location, len - 1)
+            let glyphIndex = lm.glyphIndexForCharacter(at: safeChar)
+            var effectiveRange = NSRange()
+            lineRect = lm.lineFragmentRect(forGlyphAt: glyphIndex,
                                            effectiveRange: &effectiveRange,
                                            withoutAdditionalLayout: true)
+        }
+        
         let highlightRect = NSRect(x: 0,
                                    y: lineRect.minY + textContainerInset.height,
                                    width: bounds.width,

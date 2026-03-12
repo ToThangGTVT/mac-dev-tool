@@ -16,6 +16,7 @@ class NotepadViewModel {
     var miniMapScale: CGFloat = 0.18
     var miniMapOpacity: Double = 0.35
     var autosaveEnabled: Bool = true
+    var isTextWrapped: Bool = true
     
     var activeIndex: Int? { tabs.firstIndex(where: { $0.id == activeTabID }) }
     

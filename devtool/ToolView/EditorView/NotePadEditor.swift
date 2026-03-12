@@ -25,6 +25,7 @@ struct NotePadEditor: View {
                                                  set: { viewModel.tabs[idx].savingState = $0 }),
                         lastError:       Binding(get: { viewModel.tabs[idx].lastError },
                                                  set: { viewModel.tabs[idx].lastError = $0 }),
+                        isTextWrapped:   $viewModel.isTextWrapped,
                         tabID:           viewModel.tabs[idx].id
                     )
                     MiniMapRepresentable(
@@ -185,6 +186,11 @@ struct NotePadEditor: View {
                 Label("Auto-save",
                       systemImage: viewModel.autosaveEnabled ? "clock.badge.checkmark" : "clock.badge.xmark")
             }.help("Toggle Auto-save")
+
+            Toggle(isOn: $viewModel.isTextWrapped) {
+                Label("Wrap",
+                      systemImage: viewModel.isTextWrapped ? "text.badge.minus" : "text.badge.plus")
+            }.help("Toggle Text Wrap")
 
             HStack {
                 Text("Font:")

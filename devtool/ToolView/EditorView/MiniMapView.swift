@@ -7,7 +7,6 @@ import SwiftUI
 import AppKit
 
 // MARK: - MiniMapRepresentable
-
 struct MiniMapRepresentable: NSViewRepresentable {
     @Binding var text:        String
     @Binding var fontSize:    CGFloat
