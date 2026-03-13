@@ -98,7 +98,8 @@ struct NotePadEditor: View {
                 .frame(width: 2)
             Text(tab.title)
                 .lineLimit(1)
-                .frame(maxWidth: 140)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(maxWidth: 200)
                 .truncationMode(.middle)
                 .foregroundColor(isActive ? .accentColor : .secondary)
             Button { viewModel.confirmCloseTab(tab) } label: {

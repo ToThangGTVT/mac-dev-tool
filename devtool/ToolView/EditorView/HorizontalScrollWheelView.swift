@@ -19,7 +19,8 @@ struct HorizontalScrollWheelView<Content: View>: NSViewRepresentable {
 
         let hostingView = NSHostingView(rootView: content)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
-        hostingView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        hostingView.setContentHuggingPriority(.required, for: .horizontal)
+        hostingView.setContentCompressionResistancePriority(.required, for: .horizontal)
         container.addSubview(hostingView)
 
         NSLayoutConstraint.activate([
