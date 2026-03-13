@@ -5,12 +5,16 @@
 
 import Foundation
 
-struct EditorTab: Identifiable {
+struct EditorTab: Identifiable, Codable {
     let id: UUID
-    var text: String
+    var text: String = ""
     var fileURL: URL?
     var savingState: NotePadEditor.SavingState = .idle
     var lastError: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case id, fileURL
+    }
 
     var title: String {
         if let url = fileURL {

@@ -8,15 +8,49 @@ class NotepadViewModel {
     var showPopupRemoveFIle = false
     var tabNeedToRemove: EditorTab?
     
-    var tabs: [EditorTab] = []
-    var activeTabID: UUID? = nil
+    var tabs: [EditorTab] = [] {
+        didSet {
+            saveTabs()
+        }
+    }
+    var activeTabID: UUID? = nil {
+        didSet {
+            saveTabs()
+        }
+    }
     
     // Editor settings
-    var fontSize: CGFloat = 14
-    var miniMapScale: CGFloat = 0.18
-    var miniMapOpacity: Double = 0.35
-    var autosaveEnabled: Bool = true
-    var isTextWrapped: Bool = true
+    var fontSize: CGFloat {
+        get { CGFloat(UserDefaults.standard.double(forKey: "fontSize")) != 0 ? CGFloat(UserDefaults.standard.double(forKey: "fontSize")) : 14 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: "fontSize") }
+    }
+    var miniMapScale: CGFloat {
+        get { CGFloat(UserDefaults.standard.double(forKey: "miniMapScale")) != 0 ? CGFloat(UserDefaults.standard.double(forKey: "miniMapScale")) : 0.18 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: "miniMapScale") }
+    }
+    var miniMapOpacity: Double {
+        get { UserDefaults.standard.object(forKey: "miniMapOpacity") != nil ? UserDefaults.standard.double(forKey: "miniMapOpacity") : 0.35 }
+        set { UserDefaults.standard.set(newValue, forKey: "miniMapOpacity") }
+    }
+    @ObservationIgnored
+    private var _autosaveEnabled: Bool?
+    var autosaveEnabled: Bool {
+        get { _autosaveEnabled ?? UserDefaults.standard.bool(forKey: "autosaveEnabled") }
+        set {
+            _autosaveEnabled = newValue
+            UserDefaults.standard.set(newValue, forKey: "autosaveEnabled")
+        }
+    }
+    var isTextWrapped: Bool {
+        get { UserDefaults.standard.object(forKey: "isTextWrapped") != nil ? UserDefaults.standard.bool(forKey: "isTextWrapped") : true }
+        set { UserDefaults.standard.set(newValue, forKey: "isTextWrapped") }
+    }
+    
+    // Note: The above manual getters/setters are because standard @AppStorage doesn't work inside @Observable classes as easily as in Views.
+    // However, since we are using @Observable, we can just use property observers to save.
+    
+    private let TABS_KEY = "NotePadEditor_Tabs"
+    private let ACTIVE_TAB_KEY = "NotePadEditor_ActiveTabID"
     
     var activeIndex: Int? { tabs.firstIndex(where: { $0.id == activeTabID }) }
     
@@ -37,11 +71,13 @@ class NotepadViewModel {
         let id = tab.id
         guard let idx = tabs.firstIndex(where: { $0.id == id }) else { return }
         if activeTabID == id {
-            activeTabID = tabs.isEmpty ? nil : tabs[min(idx, tabs.count - 1)].id
+            activeTabID = (tabs.count > 1) ? tabs[idx == tabs.count - 1 ? idx - 1 : idx + 1].id : nil
         }
         tabs.remove(at: idx)
         guard let fileURL = tab.fileURL else { return }
-        removeFile(at: fileURL)
+        if fileURL.path.contains("/Drafts/") {
+            removeFile(at: fileURL)
+        }
     }
     
     func closeOtherTabs(_ id: UUID) {
@@ -100,6 +136,7 @@ class NotepadViewModel {
                     self.tabs[idx].fileURL     = url
                     self.tabs[idx].savingState = .saved
                     self.tabs[idx].lastError   = nil
+                    self.saveTabs()
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -141,11 +178,63 @@ class NotepadViewModel {
     }
     
     func initOpen() {
+        if loadTabs() {
+            return
+        }
+        
         getAllDraftFiles().forEach { [weak self] url in
             guard let self = self else { return }
             if let content = try? self.readTextFile(from: url) {
                 self.addTab(text: content, fileURL: url)
             }
+        }
+    }
+    
+    private func saveTabs() {
+        do {
+            let data = try JSONEncoder().encode(tabs)
+            UserDefaults.standard.set(data, forKey: TABS_KEY)
+            if let activeTabID = activeTabID {
+                UserDefaults.standard.set(activeTabID.uuidString, forKey: ACTIVE_TAB_KEY)
+            } else {
+                UserDefaults.standard.removeObject(forKey: ACTIVE_TAB_KEY)
+            }
+        } catch {
+            print("Failed to save tabs: \(error)")
+        }
+    }
+    
+    private func loadTabs() -> Bool {
+        guard let data = UserDefaults.standard.data(forKey: TABS_KEY) else { return false }
+        do {
+            let decoder = JSONDecoder()
+            let savedTabs = try decoder.decode([EditorTab].self, from: data)
+            if savedTabs.isEmpty { return false }
+            
+            // Re-load text for each tab
+            var loadedTabs: [EditorTab] = []
+            for var tab in savedTabs {
+                if let url = tab.fileURL {
+                    if let content = try? readTextFile(from: url) {
+                        tab.text = content
+                        loadedTabs.append(tab)
+                    }
+                }
+            }
+            
+            if loadedTabs.isEmpty { return false }
+            
+            self.tabs = loadedTabs
+            if let activeIDString = UserDefaults.standard.string(forKey: ACTIVE_TAB_KEY),
+               let activeID = UUID(uuidString: activeIDString) {
+                self.activeTabID = activeID
+            } else {
+                self.activeTabID = loadedTabs.first?.id
+            }
+            return true
+        } catch {
+            print("Failed to load tabs: \(error)")
+            return false
         }
     }
     
