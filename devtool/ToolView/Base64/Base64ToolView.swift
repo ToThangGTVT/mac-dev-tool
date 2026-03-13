@@ -4,11 +4,10 @@ internal import UniformTypeIdentifiers
 struct Base64ToolView: View {
     @State private var vm = Base64ViewModel()
     @State private var isTargeted: Bool = false
+    @State private var showInspector: Bool = true
     
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
             bodyEditors
             Divider()
             footer
@@ -51,37 +50,39 @@ struct Base64ToolView: View {
                     Label("Clear", systemImage: "trash")
                 }
                 .keyboardShortcut("k", modifiers: [.command])
+
+                Spacer()
+
+                Button { withAnimation { showInspector.toggle() } } label: {
+                    Label("Toggle Sidebar", systemImage: "sidebar.trailing")
+                }
+                .help("Toggle Configuration Sidebar")
             }
         }
         .padding(.bottom, 4)
+        .inspector(isPresented: $showInspector) {
+            Base64InspectorView(vm: vm)
+                .inspectorColumnWidth(min: 250, ideal: 300, max: 450)
+        }
     }
     
     // MARK: - Header
     private var header: some View {
         HStack(spacing: 16) {
-            Picker("Chế độ", selection: $vm.mode) {
-                ForEach(Base64Mode.allCases) { m in Text(m.rawValue).tag(m) }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 220)
+            Label("Configuration", systemImage: "gearshape")
+                .font(.headline)
             
-            Divider().frame(height: 22)
-            
-            Picker("Wrap", selection: $vm.wrap) {
-                ForEach(Base64Wrap.allCases) { w in Text(w.rawValue).tag(w) }
-            }
-            .frame(width: 120)
-            
-            Picker("Line Ending", selection: $vm.lineEnding) {
-                ForEach(Base64LineEnding.allCases) { le in Text(le.rawValue).tag(le) }
-            }
-            .frame(width: 180)
-            
-            Picker("Encoding", selection: $vm.stringEncoding) {
-                ForEach(TextEncoding.allCases) { enc in Text(enc.rawValue).tag(enc) }
-            }
-            .frame(width: 140)
-            
+            Text(vm.mode.rawValue)
+                .font(.subheadline)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.accentColor.opacity(0.1))
+                .cornerRadius(6)
+
+            Text(vm.stringEncoding.rawValue)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
             Spacer()
         }
         .padding(12)
@@ -89,7 +90,7 @@ struct Base64ToolView: View {
     
     // MARK: - Editors
     private var bodyEditors: some View {
-        HStack(spacing: 0) {
+        VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Input").font(.headline)
@@ -119,7 +120,6 @@ struct Base64ToolView: View {
                 }
             }
             .padding(12)
-            .frame(minWidth: 420)
             
             Divider()
             
@@ -144,7 +144,6 @@ struct Base64ToolView: View {
                 }
             }
             .padding(12)
-            .frame(minWidth: 420)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
