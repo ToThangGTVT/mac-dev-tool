@@ -25,14 +25,7 @@ final class EditorScrollProxy {
     }
 }
 
-// MARK: - FlippedClipView
-
-final class FlippedClipView: NSClipView {
-    override var isFlipped: Bool { true }
-}
-
 // MARK: - SolidScrollView
-
 final class SolidScrollView: NSScrollView {
     var adjustedContentWidth: CGFloat {
         var w = contentSize.width
