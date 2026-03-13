@@ -5,13 +5,12 @@ struct NotePadEditor: View {
     @State private var viewModel = NotepadViewModel()
     
     enum SavingState { case idle, saving, saved, error }
-
+    
     // MARK: - Body
     var body: some View {
         VStack(spacing: 0) {
             tabBar
             Divider()
-
             if let idx = viewModel.activeIndex {
                 HStack(spacing: 0) {
                     EditorRepresentable(
@@ -41,10 +40,10 @@ struct NotePadEditor: View {
                     .frame(width: 140)
                     .border(Color.gray.opacity(0.2), width: 1)
                 }
-
+                
                 Divider()
                 statusBar(for: idx)
-
+                
             } else {
                 VStack {
                     Spacer()
@@ -69,9 +68,9 @@ struct NotePadEditor: View {
                 }
             }
         }
-
+        
     }
-
+    
     // MARK: - Tab Bar
     private var tabBar: some View {
         HorizontalScrollWheelView {
@@ -87,7 +86,7 @@ struct NotePadEditor: View {
         .frame(height: 34)
         .background(Color(NSColor.windowBackgroundColor))
     }
-
+    
     @ViewBuilder
     private func tabButton(_ tab: EditorTab) -> some View {
         let isActive = tab.id == viewModel.activeTabID
@@ -101,6 +100,7 @@ struct NotePadEditor: View {
                 .lineLimit(1)
                 .frame(maxWidth: 140)
                 .truncationMode(.middle)
+                .foregroundColor(isActive ? .accentColor : .secondary)
             Button { viewModel.confirmCloseTab(tab) } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))
@@ -112,11 +112,16 @@ struct NotePadEditor: View {
         .padding(.horizontal, 10)
         .frame(height: 34)
         .background(isActive
-            ? Color(NSColor.controlBackgroundColor)
-            : Color(NSColor.windowBackgroundColor))
+                    ? Color(NSColor.selectedControlColor)
+                    : Color(NSColor.windowBackgroundColor))
         .overlay(alignment: .bottom) {
             if isActive {
                 Rectangle().frame(height: 2).foregroundColor(.accentColor)
+            }
+        }
+        .overlay {
+            MiddleClickView {
+                viewModel.confirmCloseTab(tab)
             }
         }
         .contentShape(Rectangle())
@@ -135,7 +140,7 @@ struct NotePadEditor: View {
             }
         }
     }
-
+    
     private func savingColor(_ state: NotePadEditor.SavingState) -> Color {
         switch state {
         case .idle:   return .gray.opacity(0.4)
@@ -144,7 +149,7 @@ struct NotePadEditor: View {
         case .error:  return .red
         }
     }
-
+    
     // MARK: - Status Bar
     private func statusBar(for idx: Int) -> some View {
         HStack {
@@ -163,7 +168,7 @@ struct NotePadEditor: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
     }
-
+    
     // MARK: - Toolbar
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
@@ -171,27 +176,27 @@ struct NotePadEditor: View {
             Button { viewModel.openDoc() } label: {
                 Label("Open", systemImage: "folder.badge.plus")
             }.help("Open file")
-
+            
             Button { viewModel.saveAsDoc() } label: {
                 Label("Save As", systemImage: "square.and.arrow.down")
             }.help("Save As")
-
+            
             Button { viewModel.addTab() } label: {
                 Label("New Tab", systemImage: "doc.badge.plus")
             }.help("New Tab")
-
+            
             Divider()
-
+            
             Toggle(isOn: $viewModel.autosaveEnabled) {
                 Label("Auto-save",
                       systemImage: viewModel.autosaveEnabled ? "clock.badge.checkmark" : "clock.badge.xmark")
             }.help("Toggle Auto-save")
-
+            
             Toggle(isOn: $viewModel.isTextWrapped) {
                 Label("Wrap",
                       systemImage: viewModel.isTextWrapped ? "text.badge.minus" : "text.badge.plus")
             }.help("Toggle Text Wrap")
-
+            
             HStack {
                 Text("Font:")
                 Slider(value: Binding(
