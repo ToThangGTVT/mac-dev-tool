@@ -8,7 +8,6 @@ struct Base64InspectorView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Settings")
                     .font(.headline)
-                    .padding(.horizontal, 16)
                     .padding(.top, 16)
                 
                 VStack(alignment: .leading, spacing: 12) {
@@ -63,7 +62,7 @@ struct Base64InspectorView: View {
                             }
                             .pickerStyle(.menu)
                             .labelsHidden()
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(width: .infinity, alignment: .leading)
                         }
                     }
                     
@@ -80,13 +79,46 @@ struct Base64InspectorView: View {
                 .padding(12)
                 .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                 .cornerRadius(12)
-                .padding(.horizontal, 16)
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Output").font(.headline)
+                        Spacer()
+                        Button { PasteboardHelper.copy(vm.output) } label: {
+                            Image(systemName: "doc.on.doc").foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(vm.output.isEmpty)
+                        .help("Copy output")
+                    }
+
+                    TextEditor(text: .constant(vm.output))
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 180)
+                        .padding(4)
+                        .background(Color(NSColor.textBackgroundColor).opacity(0.5))
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+                        .disabled(true)
+
+                    HStack {
+                        Button("Copy Output") { PasteboardHelper.copy(vm.output) }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(vm.output.isEmpty)
+                            .controlSize(.small)
+                        Spacer()
+                    }
+                }
                 
                 Spacer()
             }
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

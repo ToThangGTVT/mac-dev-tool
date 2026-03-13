@@ -45,100 +45,114 @@ struct HashToolView: View {
 
     // MARK: - Editors
     private var editors: some View {
-        VSplitView {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Input").font(.headline)
-                    if let url = vm.droppedFileURL {
-                        Spacer()
-                        Label(url.lastPathComponent, systemImage: "doc").lineLimit(1).truncationMode(.middle)
-                        Text("(\(vm.humanFileSize(bytes: vm.droppedFileSize)))").foregroundColor(.secondary)
-                        Button { vm.removeDroppedFile() } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Bỏ chọn file")
-                    } else {
-                        Spacer()
-                        Button { vm.input = "" } label: { Image(systemName: "xmark.circle").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Clear input")
-                    }
-                }
-                
-                TextEditor(text: Binding(get: { vm.input }, set: { if vm.droppedFileURL == nil { vm.input = $0 } }))
-                    .font(.system(.body, design: .monospaced))
-                    .padding(8)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(isTargeted ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1))
-                    .disabled(vm.droppedFileURL != nil)
-                    .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $isTargeted) { providers in
-                        vm.handleDrop(providers: providers)
-                    }
-                
-                HStack(spacing: 8) {
-                    Button("Hash", action: vm.computeHash).buttonStyle(.borderedProminent)
-                    Button("Paste") { if let text = PasteboardHelper.paste() { vm.input = text } }.disabled(vm.droppedFileURL != nil)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Input").font(.headline)
+                if let url = vm.droppedFileURL {
                     Spacer()
-                    Button("Clear", role: .destructive, action: vm.clearAll)
+                    Label(url.lastPathComponent, systemImage: "doc").lineLimit(1).truncationMode(.middle)
+                    Text("(\(vm.humanFileSize(bytes: vm.droppedFileSize)))").foregroundColor(.secondary)
+                    Button { vm.removeDroppedFile() } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Bỏ chọn file")
+                } else {
+                    Spacer()
+                    Button { vm.input = "" } label: { Image(systemName: "xmark.circle").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Clear input")
                 }
             }
-            .padding(12)
-            .frame(minHeight: 100)
             
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Output").font(.headline)
-                    Spacer()
-                    Button { PasteboardHelper.copy(vm.output) } label: { Image(systemName: "doc.on.doc").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Copy output")
+            TextEditor(text: Binding(get: { vm.input }, set: { if vm.droppedFileURL == nil { vm.input = $0 } }))
+                .font(.system(.body, design: .monospaced))
+                .padding(8)
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(isTargeted ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1))
+                .disabled(vm.droppedFileURL != nil)
+                .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $isTargeted) { providers in
+                    vm.handleDrop(providers: providers)
                 }
-                TextEditor(text: Binding(get: { vm.output }, set: { _ in }))
-                    .font(.system(.body, design: .monospaced))
-                    .padding(8)
-                    .background(Color(NSColor.textBackgroundColor).opacity(0.5))
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
-                HStack {
-                    Spacer()
-                    Button("Copy Output") { PasteboardHelper.copy(vm.output) }.disabled(vm.output.isEmpty)
-                }
+            
+            HStack(spacing: 8) {
+                Button("Hash", action: vm.computeHash).buttonStyle(.borderedProminent)
+                Button("Paste") { if let text = PasteboardHelper.paste() { vm.input = text } }.disabled(vm.droppedFileURL != nil)
+                Spacer()
+                Button("Clear", role: .destructive, action: vm.clearAll)
             }
-            .padding(12)
-            .frame(minHeight: 100)
         }
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var inspectorContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Settings").font(.headline)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Thuật toán").font(.subheadline).foregroundColor(.secondary)
-                Picker("", selection: $vm.algorithm) {
-                    ForEach(HashAlgorithm.allCases) { alg in Text(alg.rawValue).tag(alg) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Settings").font(.headline)
+                    .padding(.top, 16)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Thuật toán").font(.subheadline).foregroundColor(.secondary)
+                        Picker("", selection: $vm.algorithm) {
+                            ForEach(HashAlgorithm.allCases) { alg in Text(alg.rawValue).tag(alg) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Output Format").font(.subheadline).foregroundColor(.secondary)
+                        Picker("", selection: $vm.outputFormat) {
+                            ForEach(HashOutputFormat.allCases) { fmt in Text(fmt.rawValue).tag(fmt) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Encoding").font(.subheadline).foregroundColor(.secondary)
+                        Picker("", selection: $vm.stringEncoding) {
+                            ForEach(TextEncoding.allCases) { enc in Text(enc.rawValue).tag(enc) }
+                        }
+                        .disabled(vm.droppedFileURL != nil)
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Output Format").font(.subheadline).foregroundColor(.secondary)
-                Picker("", selection: $vm.outputFormat) {
-                    ForEach(HashOutputFormat.allCases) { fmt in Text(fmt.rawValue).tag(fmt) }
+                .padding(12)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                .cornerRadius(12)
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Output").font(.headline)
+                        Spacer()
+                        Button { PasteboardHelper.copy(vm.output) } label: { Image(systemName: "doc.on.doc").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Copy output")
+                    }
+                    TextEditor(text: .constant(vm.output))
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 180)
+                        .padding(4)
+                        .background(Color(NSColor.textBackgroundColor).opacity(0.5))
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+                        .disabled(true)
+                    HStack {
+                        Button("Copy Output") { PasteboardHelper.copy(vm.output) }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(vm.output.isEmpty)
+                            .controlSize(.small)
+                        Spacer()
+                    }
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
+                
+                Spacer()
             }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Encoding").font(.subheadline).foregroundColor(.secondary)
-                Picker("", selection: $vm.stringEncoding) {
-                    ForEach(TextEncoding.allCases) { enc in Text(enc.rawValue).tag(enc) }
-                }
-                .disabled(vm.droppedFileURL != nil)
-                .pickerStyle(.menu)
-                .labelsHidden()
-            }
-            
-            Spacer()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
     }
 
     // MARK: - Footer

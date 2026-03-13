@@ -50,80 +50,54 @@ struct Base64ToolView: View {
     
     // MARK: - Editors
     private var bodyEditors: some View {
-        VSplitView {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Input").font(.headline)
-                    if let url = vm.droppedFileURL {
-                        Spacer()
-                        Label(url.lastPathComponent, systemImage: "doc").lineLimit(1).truncationMode(.middle)
-                        Text("(\(vm.humanFileSize(bytes: vm.droppedFileSize)))").foregroundColor(.secondary)
-                        Button { vm.removeDroppedFile() } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Bỏ chọn file")
-                    } else {
-                        Spacer()
-                        Button { vm.input = "" } label: { Image(systemName: "xmark.circle").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Clear input")
-                    }
-                }
-                
-                TextEditor(text: Binding(get: { vm.input }, set: { if vm.droppedFileURL == nil { vm.input = $0 } }))
-                    .font(.system(.body, design: .monospaced))
-                    .padding(8)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(isTargeted ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1))
-                    .disabled(vm.droppedFileURL != nil)
-                    .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $isTargeted) { providers in
-                        vm.handleDrop(providers: providers)
-                    }
-                
-                if vm.algorithm.isHash && vm.mode == .decode {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Target Hash (to compare)").font(.headline)
-                        TextField("Paste hash here...", text: $vm.targetHash)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                }
-                
-                HStack(spacing: 8) {
-                    if vm.algorithm == .base64 {
-                        Button(vm.mode == .encode ? "Encode" : "Decode", action: vm.performMainAction).buttonStyle(.borderedProminent)
-                        Button("Swap Mode", action: vm.swapMode)
-                    } else {
-                        Button(vm.mode == .encode ? "Hash" : "Verify", action: vm.performMainAction).buttonStyle(.borderedProminent)
-                    }
-                    Button("Paste") { if let text = PasteboardHelper.paste() { vm.input = text } }.disabled(vm.droppedFileURL != nil)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Input").font(.headline)
+                if let url = vm.droppedFileURL {
                     Spacer()
-                    Button("Clear", role: .destructive, action: vm.clearAll)
+                    Label(url.lastPathComponent, systemImage: "doc").lineLimit(1).truncationMode(.middle)
+                    Text("(\(vm.humanFileSize(bytes: vm.droppedFileSize)))").foregroundColor(.secondary)
+                    Button { vm.removeDroppedFile() } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Bỏ chọn file")
+                } else {
+                    Spacer()
+                    Button { vm.input = "" } label: { Image(systemName: "xmark.circle").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Clear input")
                 }
             }
-            .frame(minWidth: 0)
-            .padding(12)
             
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Output").font(.headline)
-                    Spacer()
-                    Button { PasteboardHelper.copy(vm.output) } label: { Image(systemName: "doc.on.doc").foregroundColor(.secondary) }
-                    .buttonStyle(.borderless).help("Copy output")
+            TextEditor(text: Binding(get: { vm.input }, set: { if vm.droppedFileURL == nil { vm.input = $0 } }))
+                .font(.system(.body, design: .monospaced))
+                .padding(8)
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(isTargeted ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1))
+                .disabled(vm.droppedFileURL != nil)
+                .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $isTargeted) { providers in
+                    vm.handleDrop(providers: providers)
                 }
-                
-                TextEditor(text: Binding(get: { vm.output }, set: { _ in }))
-                    .font(.system(.body, design: .monospaced))
-                    .padding(8)
-                    .background(Color(NSColor.textBackgroundColor).opacity(0.5))
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
-                
-                HStack {
-                    Spacer()
-                    Button("Copy Output") { PasteboardHelper.copy(vm.output) }.disabled(vm.output.isEmpty)
+            
+            if vm.algorithm.isHash && vm.mode == .decode {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Target Hash (to compare)").font(.headline)
+                    TextField("Paste hash here...", text: $vm.targetHash)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
                 }
             }
-            .padding(12)
-            .frame(minWidth: 0)
+            
+            HStack(spacing: 8) {
+                if vm.algorithm == .base64 {
+                    Button(vm.mode == .encode ? "Encode" : "Decode", action: vm.performMainAction).buttonStyle(.borderedProminent)
+                    Button("Swap Mode", action: vm.swapMode)
+                } else {
+                    Button(vm.mode == .encode ? "Hash" : "Verify", action: vm.performMainAction).buttonStyle(.borderedProminent)
+                }
+                Button("Paste") { if let text = PasteboardHelper.paste() { vm.input = text } }.disabled(vm.droppedFileURL != nil)
+                Spacer()
+                Button("Clear", role: .destructive, action: vm.clearAll)
+            }
         }
-        .frame(minWidth: 1, maxWidth: .infinity, maxHeight: .infinity)
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Footer
@@ -136,8 +110,10 @@ struct Base64ToolView: View {
                      (vm.mode == .encode ? "Chuyển dữ liệu sang Base64." : "Chuyển Base64 sang dữ liệu.") :
                      "Băm dữ liệu bằng thuật toán \(vm.algorithm.rawValue).")
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
         }
+        .padding(8)
     }
 }

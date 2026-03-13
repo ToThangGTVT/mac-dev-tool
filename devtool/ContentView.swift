@@ -18,7 +18,6 @@ struct ContentView: View {
                 switch selection {
                 case .editor:   NotePadEditor()
                 case .base64:   Base64ToolView()
-                case .hash:     HashToolView()
                 case .rsaHash:  RSAToolView()
                 case .textCase: TextCaseToolView()
                 case .regex:    RegexTesterToolView()

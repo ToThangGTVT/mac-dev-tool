@@ -9,8 +9,21 @@ struct RSAInputFormView: View {
                 HStack {
                     Text("Public Key (PEM)").font(.headline)
                     Spacer()
+                    if !vm.publicKeyPEM.isEmpty {
+                        Button { PasteboardHelper.copy(vm.publicKeyPEM) } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Copy Public Key")
+                        
+                        Button { vm.savePEM(vm.publicKeyPEM, suggestedName: "public_key.pem") } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Export Public Key")
+                    }
                     if vm.operation == .encrypt || vm.operation == .verify {
-                        Text("Cần PUBLIC KEY").foregroundColor(.secondary)
+                        Text("Cần PUBLIC KEY").foregroundColor(.secondary).font(.caption)
                     }
                 }
                 TextEditor(text: $vm.publicKeyPEM)
@@ -22,8 +35,21 @@ struct RSAInputFormView: View {
                 HStack {
                     Text("Private Key (PEM)").font(.headline)
                     Spacer()
+                    if !vm.privateKeyPEM.isEmpty {
+                        Button { PasteboardHelper.copy(vm.privateKeyPEM) } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Copy Private Key")
+                        
+                        Button { vm.savePEM(vm.privateKeyPEM, suggestedName: "private_key.pem") } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Export Private Key")
+                    }
                     if vm.operation == .decrypt || vm.operation == .sign {
-                        Text("Cần PRIVATE KEY").foregroundColor(.secondary)
+                        Text("Cần PRIVATE KEY").foregroundColor(.secondary).font(.caption)
                     }
                 }
                 TextEditor(text: $vm.privateKeyPEM)

@@ -7,9 +7,7 @@ struct RSAToolView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
-            content
+            editors
             Divider()
             footer
         }
@@ -44,45 +42,14 @@ struct RSAToolView: View {
         .padding(.bottom, 4)
         .inspector(isPresented: $showInspector) {
             RSAInspectorView(vm: vm)
-                .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
+                .inspectorColumnWidth(min: 250, ideal: 300, max: 600)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     
-    private var header: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], alignment: .leading, spacing: 16) {
-            Picker("Operation", selection: $vm.operation) {
-                ForEach(RSAOperation.allCases) { Text($0.rawValue).tag($0) }
-            }.frame(minWidth: 160)
-
-            if vm.operation == .encrypt || vm.operation == .decrypt {
-                Picker("Algorithm", selection: $vm.encAlg) {
-                    ForEach(RSAEncryptAlg.allCases) { Text($0.rawValue).tag($0) }
-                }.frame(minWidth: 240)
-            } else {
-                Picker("Algorithm", selection: $vm.sigAlg) {
-                    ForEach(RSASignAlg.allCases) { Text($0.rawValue).tag($0) }
-                }.frame(minWidth: 260)
-            }
-
-            if vm.operation == .encrypt || vm.operation == .sign || vm.operation == .verify {
-                Picker("Message Encoding", selection: $vm.msgEncoding) {
-                    ForEach(TextEncoding.allCases) { Text($0.rawValue).tag($0) }
-                }.frame(minWidth: 160)
-            }
-
-            Picker("Binary Format", selection: $vm.binFormat) {
-                ForEach(RSABinaryFormat.allCases) { Text($0.rawValue).tag($0) }
-            }.frame(minWidth: 200).help("Định dạng vào/ra cho ciphertext hoặc signature")
-            
-            Spacer()
-        }.padding(12)
-    }
-    
-    private var content: some View {
+    private var editors: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                RSAKeyGeneratorView(vm: vm)
                 RSAInputFormView(vm: vm)
                 
                 HStack(spacing: 8) {
@@ -91,7 +58,8 @@ struct RSAToolView: View {
                     Button("Clear", role: .destructive, action: vm.clearAll)
                 }
             }.padding(12)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var footer: some View {

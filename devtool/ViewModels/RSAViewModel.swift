@@ -12,7 +12,6 @@ class RSAViewModel {
     var sigAlg: RSASignAlg { didSet { save("rsa.sigAlg", sigAlg.rawValue) } }
     
     var keySize: RSAKeySize { didSet { save("rsa.keySize", keySize.rawValue) } }
-    var autofillKeysToInputs: Bool { didSet { save("rsa.autofillKeys", autofillKeysToInputs) } }
     
     var publicKeyPEM: String = ""
     var privateKeyPEM: String = ""
@@ -21,10 +20,7 @@ class RSAViewModel {
     var outputText: String = ""
     var errorMessage: String?
     
-    var generatedPrivatePEM: String = ""
-    var generatedPublicPEM: String = ""
     var isGenerating = false
-    var showPreview = false
     
     init() {
         self.operation = RSAOperation(rawValue: Self.load("rsa.operation") ?? "") ?? .encrypt
@@ -35,12 +31,6 @@ class RSAViewModel {
         
         let savedKeySize = UserDefaults.standard.integer(forKey: "rsa.keySize")
         self.keySize = RSAKeySize(rawValue: savedKeySize) ?? .bits2048
-        
-        if UserDefaults.standard.object(forKey: "rsa.autofillKeys") == nil {
-            self.autofillKeysToInputs = true
-        } else {
-            self.autofillKeysToInputs = UserDefaults.standard.bool(forKey: "rsa.autofillKeys")
-        }
     }
     
     private func save(_ key: String, _ value: Any) { UserDefaults.standard.set(value, forKey: key) }
@@ -211,11 +201,6 @@ class RSAViewModel {
     @MainActor
     func generateRSAKeyPairAsync() async {
         errorMessage = nil
-        if autofillKeysToInputs {
-            generatedPrivatePEM = ""
-            generatedPublicPEM  = ""
-            showPreview = false
-        }
         isGenerating = true
         defer { isGenerating = false }
         
@@ -231,14 +216,8 @@ class RSAViewModel {
         
         switch result {
         case .success(let (privPEM, pubPEM)):
-            if autofillKeysToInputs {
-                privateKeyPEM = privPEM
-                publicKeyPEM  = pubPEM
-            } else {
-                generatedPrivatePEM = privPEM
-                generatedPublicPEM  = pubPEM
-                if !showPreview { showPreview = true }
-            }
+            privateKeyPEM = privPEM
+            publicKeyPEM  = pubPEM
         case .failure(let err):
             errorMessage = err.localizedDescription
         }
