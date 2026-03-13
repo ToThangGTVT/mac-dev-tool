@@ -40,7 +40,6 @@ final class SolidScrollView: NSScrollView {
 }
 
 // MARK: - SolidTextView
-
 final class SolidTextView: NSTextView {
     override var allowsVibrancy: Bool { false }
     var currentLineColor: NSColor = NSColor.controlAccentColor.withAlphaComponent(0.12)
