@@ -20,6 +20,20 @@ final class LineNumberRulerView: NSRulerView {
     
     required init(coder: NSCoder) { super.init(coder: coder) }
 
+    func refreshRuleThickness() {
+        if lineStarts.isEmpty { invalidateLineCache() }
+        let digits = String(max(1, lineStarts.count)).count
+        let minThickness: CGFloat = 40
+        let needed = max(minThickness, CGFloat(8 + digits * 8 + 12))
+        
+        if abs(ruleThickness - needed) > 0.5 {
+            ruleThickness = needed
+            // Force scroll view to reposition clip view & document view
+            // so ruler doesn't overlap the text view
+            scrollView?.tile()
+        }
+    }
+
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard let tv = textView,
               let lm = tv.layoutManager,
@@ -28,17 +42,6 @@ final class LineNumberRulerView: NSRulerView {
 
         NSColor.textBackgroundColor.setFill()
         bounds.fill()
-
-        // Tính thickness trước để layout ổn định
-        if lineStarts.isEmpty { invalidateLineCache() }
-        let digits = String(max(1, lineStarts.count)).count
-        let minThickness: CGFloat = 40
-        let needed = max(minThickness, CGFloat(8 + digits * 8 + 12))
-        
-        if abs(ruleThickness - needed) > 0.5 {
-            ruleThickness = needed
-            return // AppKit sẽ gọi lại draw sau khi thickness thay đổi
-        }
 
         let clipBounds  = sv.contentView.bounds
         let visibleInTV = sv.contentView.convert(clipBounds, to: tv)

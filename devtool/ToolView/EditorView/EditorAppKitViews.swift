@@ -34,10 +34,47 @@ final class FlippedClipView: NSClipView {
 // MARK: - SolidScrollView
 
 final class SolidScrollView: NSScrollView {
-    override var allowsVibrancy: Bool { false }
+    var adjustedContentWidth: CGFloat {
+        var w = contentSize.width
+        if let ruler = verticalRulerView, rulersVisible {
+            let ruleW = ruler.ruleThickness
+            let contentFrame = contentView.frame
+            if contentFrame.minX < ruleW {
+                w = contentFrame.width - (ruleW - contentFrame.minX)
+            }
+        }
+        return w
+    }
 
     override func tile() {
         super.tile()
+
+        // NSRulerView with .noBorder overlaps the content view by default.
+        // We shift the clip view to the right by the ruler's width to prevent overlapping.
+        if let ruler = verticalRulerView, rulersVisible {
+            let ruleW = ruler.ruleThickness
+            var contentFrame = contentView.frame
+            // Only adjust if it hasn't been adjusted already by super (in some OS versions)
+            if contentFrame.minX < ruleW {
+                let overlap = ruleW - contentFrame.minX
+                contentFrame.origin.x += overlap
+                contentFrame.size.width -= overlap
+                contentView.frame = contentFrame
+            }
+        }
+
+        // Constrain documentView (text view) leading edge to ruler trailing
+        if let docView = documentView, let tv = docView as? SolidTextView, !tv.isHorizontallyResizable {
+            let cw = adjustedContentWidth
+
+            if docView.frame.size.width != cw {
+                docView.setFrameSize(NSSize(width: cw, height: docView.frame.size.height))
+            }
+            if let tc = tv.textContainer, tc.containerSize.width != cw {
+                tc.containerSize = NSSize(width: cw, height: CGFloat.greatestFiniteMagnitude)
+            }
+        }
+
         for sub in subviews {
             if String(describing: type(of: sub)).contains("ContentBackground") {
                 sub.alphaValue = 0

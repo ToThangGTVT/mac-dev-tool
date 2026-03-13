@@ -15,26 +15,26 @@ struct NotePadEditor: View {
             if let idx = viewModel.activeIndex {
                 HStack(spacing: 0) {
                     EditorRepresentable(
-                        text:            Binding(get: { viewModel.tabs[idx].text },
-                                                 set: { viewModel.tabs[idx].text = $0 }),
-                        fontSize:        $viewModel.fontSize,
+                        text: Binding(get: { viewModel.tabs[idx].text },
+                                      set: { viewModel.tabs[idx].text = $0 }),
+                        fontSize: $viewModel.fontSize,
                         autosaveEnabled: $viewModel.autosaveEnabled,
-                        fileURL:         Binding(get: { viewModel.tabs[idx].fileURL },
-                                                 set: { viewModel.tabs[idx].fileURL = $0 }),
-                        savingState:     Binding(get: { viewModel.tabs[idx].savingState },
-                                                 set: { viewModel.tabs[idx].savingState = $0 }),
-                        lastError:       Binding(get: { viewModel.tabs[idx].lastError },
-                                                 set: { viewModel.tabs[idx].lastError = $0 }),
-                        isTextWrapped:   $viewModel.isTextWrapped,
-                        tabID:           viewModel.tabs[idx].id
+                        fileURL: Binding(get: { viewModel.tabs[idx].fileURL },
+                                         set: { viewModel.tabs[idx].fileURL = $0 }),
+                        savingState: Binding(get: { viewModel.tabs[idx].savingState },
+                                             set: { viewModel.tabs[idx].savingState = $0 }),
+                        lastError: Binding(get: { viewModel.tabs[idx].lastError },
+                                           set: { viewModel.tabs[idx].lastError = $0 }),
+                        isTextWrapped: $viewModel.isTextWrapped,
+                        tabID: viewModel.tabs[idx].id
                     )
                     MiniMapRepresentable(
-                        text:        Binding(get: { viewModel.tabs[idx].text },
-                                             set: { viewModel.tabs[idx].text = $0 }),
-                        fontSize:    $viewModel.fontSize,
+                        text: Binding(get: { viewModel.tabs[idx].text },
+                                      set: { viewModel.tabs[idx].text = $0 }),
+                        fontSize: $viewModel.fontSize,
                         scaleFactor: $viewModel.miniMapScale,
-                        opacity:     $viewModel.miniMapOpacity,
-                        onScroll:    { ratio in
+                        opacity: $viewModel.miniMapOpacity,
+                        onScroll: { ratio in
                             EditorScrollProxy.shared.scroll(toRatio: ratio, tabID: viewModel.tabs[idx].id)
                         }
                     )
@@ -128,10 +128,10 @@ struct NotePadEditor: View {
         .contentShape(Rectangle())
         .onTapGesture { viewModel.activeTabID = tab.id }
         .contextMenu {
-            Button("Close Tab")        { viewModel.closeTab(tab) }
+            Button("Close Tab") { viewModel.closeTab(tab) }
             Button("Close Other Tabs") { viewModel.closeOtherTabs(tab.id) }
             Divider()
-            Button("New Tab")          { viewModel.addTab() }
+            Button("New Tab") { viewModel.addTab() }
         }
         .onHover { hovering in
             if hovering {
@@ -144,10 +144,10 @@ struct NotePadEditor: View {
     
     private func savingColor(_ state: NotePadEditor.SavingState) -> Color {
         switch state {
-        case .idle:   return .gray.opacity(0.4)
+        case .idle: return .gray.opacity(0.4)
         case .saving: return .blue
-        case .saved:  return .green
-        case .error:  return .red
+        case .saved: return .green
+        case .error: return .red
         }
     }
     
@@ -197,14 +197,14 @@ struct NotePadEditor: View {
                     Toggle(isOn: $viewModel.autosaveEnabled) {
                         Label("Auto-save",
                               systemImage: viewModel.autosaveEnabled ? "clock.badge.checkmark" : "clock.badge.xmark")
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .toggleStyle(.switch)
                     
                     Toggle(isOn: $viewModel.isTextWrapped) {
                         Label("Wrap Text",
                               systemImage: viewModel.isTextWrapped ? "text.badge.minus" : "text.badge.plus")
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .toggleStyle(.switch)
                     

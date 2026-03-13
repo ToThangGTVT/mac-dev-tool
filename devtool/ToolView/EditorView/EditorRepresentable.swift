@@ -78,11 +78,48 @@ struct EditorRepresentable: NSViewRepresentable {
         let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         let fgColor = NSColor.labelColor
         
+        ruler.invalidateLineCache()
+        ruler.refreshRuleThickness()
+        sv.tile()
+        let contentWidth = (sv as? SolidScrollView)?.adjustedContentWidth ?? sv.contentSize.width
+        
+        if sv.hasHorizontalScroller != !isTextWrapped {
+            sv.hasHorizontalScroller = !isTextWrapped
+            sv.tile()
+        }
+        
+        if isTextWrapped {
+            if tc.containerSize.width != contentWidth {
+                tc.containerSize = NSSize(width: contentWidth, height: CGFloat.greatestFiniteMagnitude)
+            }
+            tv.isHorizontallyResizable = false
+            tv.autoresizingMask = []
+            if tv.frame.size.width != contentWidth {
+                tv.frame.size.width = contentWidth
+            }
+            if tv.frame.origin != .zero {
+                tv.frame.origin = .zero
+            }
+            tv.maxSize = NSSize(width: contentWidth, height: CGFloat.greatestFiniteMagnitude)
+            tv.minSize = NSSize(width: 0, height: 0)
+            tc.widthTracksTextView = true
+        } else {
+            if tc.containerSize.width != CGFloat.greatestFiniteMagnitude {
+                tc.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            }
+            tv.isHorizontallyResizable = true
+            tv.autoresizingMask = []
+            if tv.frame.origin != .zero {
+                tv.frame.origin = .zero
+            }
+            tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            tv.minSize = NSSize(width: contentWidth, height: sv.contentSize.height)
+            tc.widthTracksTextView = false
+        }
+        
         if tv.string != text {
             tv.textStorage?.setAttributedString(NSAttributedString(
                 string: text, attributes: [.font: font, .foregroundColor: fgColor]))
-            lm.ensureLayout(for: tc); tv.sizeToFit()
-            ruler.invalidateLineCache(); ruler.needsDisplay = true
         }
         
         if tv.font?.pointSize != fontSize {
@@ -96,39 +133,16 @@ struct EditorRepresentable: NSViewRepresentable {
                                 range: NSRange(location: 0, length: ts.length))
                 ts.endEditing()
             }
-            lm.ensureLayout(for: tc); tv.sizeToFit()
-            ruler.invalidateLineCache(); ruler.needsDisplay = true
         }
         
-        if isTextWrapped {
-            let w = max(sv.contentSize.width - 2, 100)
-            if abs(tc.containerSize.width - w) > 4 {
-                tc.containerSize = NSSize(width: w, height: CGFloat.greatestFiniteMagnitude)
-                lm.ensureLayout(for: tc); tv.sizeToFit()
-            }
-            tc.widthTracksTextView = true
-            tv.isHorizontallyResizable = false
-            tv.autoresizingMask = [.width]
-            tv.minSize = NSSize(width: 0, height: 0)
-        } else {
-            if tc.containerSize.width != CGFloat.greatestFiniteMagnitude {
-                tc.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-            }
-            tc.widthTracksTextView = false
-            tv.isHorizontallyResizable = true
-            tv.autoresizingMask = [.width, .height]
-            tv.minSize = NSSize(width: sv.contentSize.width, height: sv.contentSize.height)
-            lm.ensureLayout(for: tc); tv.sizeToFit()
-        }
-        
-        if sv.hasHorizontalScroller != !isTextWrapped {
-            sv.hasHorizontalScroller = !isTextWrapped
-        }
+        lm.ensureLayout(for: tc)
+        tv.sizeToFit()
+        ruler.needsDisplay = true
+        sv.reflectScrolledClipView(sv.contentView)
         
         EditorScrollProxy.shared.register(sv, for: tabID)
         context.coordinator.parent = self
         tv.needsDisplay = true
-        ruler.needsDisplay = true
     }
     
     // MARK: - Coordinator
@@ -146,14 +160,17 @@ struct EditorRepresentable: NSViewRepresentable {
         @objc func textChanged(_ n: Notification) {
             guard let tv = tv else { return }
             if parent.text != tv.string { parent.text = tv.string }
-            ruler?.invalidateLineCache(); ruler?.needsDisplay = true
+            ruler?.invalidateLineCache()
+            ruler?.refreshRuleThickness()
+            ruler?.needsDisplay = true
             scheduleAutosave()
         }
         
-        @objc func scrolled(_ n: Notification) { 
+        @objc func scrolled(_ n: Notification) {
             ruler?.needsDisplay = true
             guard !parent.isTextWrapped, let sv = sv, let tv = tv else { return }
-            let newMinSize = NSSize(width: sv.contentSize.width, height: sv.contentSize.height)
+            let cw = (sv as? SolidScrollView)?.adjustedContentWidth ?? sv.contentSize.width
+            let newMinSize = NSSize(width: cw, height: sv.contentSize.height)
             if tv.minSize != newMinSize {
                 tv.minSize = newMinSize
             }
@@ -201,7 +218,7 @@ private extension EditorRepresentable {
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = !isTextWrapped
-        textView.autoresizingMask = isTextWrapped ? [.width] : [.width, .height]
+        textView.autoresizingMask = []
         textView.isRichText = false
         textView.allowsUndo = true
         textView.isAutomaticQuoteSubstitutionEnabled = false
