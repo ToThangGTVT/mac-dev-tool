@@ -250,11 +250,6 @@ private extension EditorRepresentable {
         sv.backgroundColor = bgColor
         sv.wantsLayer = true
         sv.layer?.masksToBounds = true
-        
-        let clip = FlippedClipView()
-        clip.drawsBackground = true
-        clip.backgroundColor = bgColor
-        sv.contentView = clip
         sv.documentView = textView
         
         sv.hasVerticalRuler = true
