@@ -55,8 +55,8 @@ class NotepadViewModel {
     var activeIndex: Int? { tabs.firstIndex(where: { $0.id == activeTabID }) }
     
     // MARK: - Tab Management
-    func addTab(text: String = "", fileURL: URL? = nil) {
-        let tab = EditorTab(text: text, fileURL: fileURL ?? draftURL())
+    func addTab(text: String = "", fileURL: URL? = nil, bookmarkData: Data? = nil) {
+        let tab = EditorTab(text: text, fileURL: fileURL ?? draftURL(), bookmarkData: bookmarkData)
         tabs.append(tab)
         activeTabID = tab.id
     }
@@ -105,8 +105,9 @@ class NotepadViewModel {
             guard r == .OK else { return }
             DispatchQueue.main.async {
                 for url in p.urls {
+                    let bookmark = self.createBookmark(for: url)
                     if let content = try? self.readTextFile(from: url) {
-                        self.addTab(text: content, fileURL: url)
+                        self.addTab(text: content, fileURL: url, bookmarkData: bookmark)
                     }
                 }
             }
@@ -114,6 +115,9 @@ class NotepadViewModel {
     }
     
     private func readTextFile(from url: URL) throws -> String {
+        let isSecurityScoped = url.startAccessingSecurityScopedResource()
+        defer { if isSecurityScoped { url.stopAccessingSecurityScopedResource() } }
+        
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
         return String(decoding: data, as: UTF8.self)
     }
@@ -133,9 +137,10 @@ class NotepadViewModel {
             do {
                 try self.tabs[idx].text.data(using: .utf8)?.write(to: url, options: .atomic)
                 DispatchQueue.main.async {
-                    self.tabs[idx].fileURL     = url
-                    self.tabs[idx].savingState = .saved
-                    self.tabs[idx].lastError   = nil
+                    self.tabs[idx].fileURL      = url
+                    self.tabs[idx].bookmarkData = self.createBookmark(for: url)
+                    self.tabs[idx].savingState  = .saved
+                    self.tabs[idx].lastError    = nil
                     self.saveTabs()
                 }
             } catch {
@@ -214,6 +219,11 @@ class NotepadViewModel {
             // Re-load text for each tab
             var loadedTabs: [EditorTab] = []
             for var tab in savedTabs {
+                // If we have bookmark data, resolve it to get fresh permission
+                if let data = tab.bookmarkData, let resolvedURL = resolveBookmark(data) {
+                    tab.fileURL = resolvedURL
+                }
+                
                 if let url = tab.fileURL {
                     if let content = try? readTextFile(from: url) {
                         tab.text = content
@@ -235,6 +245,29 @@ class NotepadViewModel {
         } catch {
             print("Failed to load tabs: \(error)")
             return false
+        }
+    }
+    
+    private func createBookmark(for url: URL) -> Data? {
+        do {
+            return try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        } catch {
+            print("Failed to create bookmark: \(error)")
+            return nil
+        }
+    }
+    
+    private func resolveBookmark(_ data: Data) -> URL? {
+        var isStale = false
+        do {
+            let url = try URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+            if isStale {
+                // Handle stale bookmark
+            }
+            return url
+        } catch {
+            print("Failed to resolve bookmark: \(error)")
+            return nil
         }
     }
     

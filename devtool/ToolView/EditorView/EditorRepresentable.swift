@@ -191,6 +191,10 @@ struct EditorRepresentable: NSViewRepresentable {
             guard let url = parent.fileURL else {
                 parent.lastError = "No file URL"; parent.savingState = .error; return
             }
+            
+            let isSecurityScoped = url.startAccessingSecurityScopedResource()
+            defer { if isSecurityScoped { url.stopAccessingSecurityScopedResource() } }
+            
             do {
                 try (parent.text.data(using: .utf8) ?? Data()).write(to: url, options: .atomic)
                 parent.lastError = nil; parent.savingState = .saved

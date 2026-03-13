@@ -121,7 +121,7 @@ class HashViewModel {
     func handleDrop(providers: [NSItemProvider]) -> Bool {
         for provider in providers {
             if provider.hasItemConformingToTypeIdentifier("public.file-url") {
-                _ = provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { (urlData, _) in
+                provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { (urlData, _) in
                     guard let urlData = urlData as? Data,
                           let url = URL(dataRepresentation: urlData, relativeTo: nil) else { return }
                     do {

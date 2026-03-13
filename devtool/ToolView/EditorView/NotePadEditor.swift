@@ -69,7 +69,6 @@ struct NotePadEditor: View {
                 }
             }
         }
-        
     }
     
     // MARK: - Tab Bar
