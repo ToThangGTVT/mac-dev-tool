@@ -97,9 +97,10 @@ final class SolidTextView: NSTextView {
                                            withoutAdditionalLayout: true)
         }
         
+        let highlightWidth = max(bounds.width, enclosingScrollView?.contentSize.width ?? bounds.width)
         let highlightRect = NSRect(x: 0,
                                    y: lineRect.minY + textContainerInset.height,
-                                   width: bounds.width,
+                                   width: highlightWidth,
                                    height: lineRect.height)
         currentLineColor.setFill()
         highlightRect.fill()

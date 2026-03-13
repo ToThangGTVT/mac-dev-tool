@@ -3,6 +3,7 @@ import AppKit
 
 struct NotePadEditor: View {
     @State private var viewModel = NotepadViewModel()
+    @State private var isShowingSettings = false
     
     enum SavingState { case idle, saving, saved, error }
     
@@ -185,33 +186,48 @@ struct NotePadEditor: View {
                 Label("New Tab", systemImage: "doc.badge.plus")
             }.help("New Tab")
             
-            Divider()
-            
-            Toggle(isOn: $viewModel.autosaveEnabled) {
-                Label("Auto-save",
-                      systemImage: viewModel.autosaveEnabled ? "clock.badge.checkmark" : "clock.badge.xmark")
-            }.help("Toggle Auto-save")
-            
-            Toggle(isOn: $viewModel.isTextWrapped) {
-                Label("Wrap",
-                      systemImage: viewModel.isTextWrapped ? "text.badge.minus" : "text.badge.plus")
-            }.help("Toggle Text Wrap")
-            
-            HStack {
-                Text("Font:")
-                Slider(value: Binding(
-                    get: { Double(viewModel.fontSize) },
-                    set: { viewModel.fontSize = CGFloat($0) }
-                ), in: 10...28).frame(width: 80)
-                Text("\(Int(viewModel.fontSize))pt").frame(width: 32)
+            Button {
+                isShowingSettings.toggle()
+            } label: {
+                Label("Settings", systemImage: "gearshape")
             }
-            HStack {
-                Text("Map:")
-                Slider(value: Binding(
-                    get: { Double(viewModel.miniMapScale) },
-                    set: { viewModel.miniMapScale = CGFloat($0) }
-                ), in: 0.08...0.4).frame(width: 80)
-                Text(String(format: "%.2f×", viewModel.miniMapScale)).frame(width: 42)
+            .help("Editor Settings")
+            .popover(isPresented: $isShowingSettings, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Toggle(isOn: $viewModel.autosaveEnabled) {
+                        Label("Auto-save",
+                              systemImage: viewModel.autosaveEnabled ? "clock.badge.checkmark" : "clock.badge.xmark")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .toggleStyle(.switch)
+                    
+                    Toggle(isOn: $viewModel.isTextWrapped) {
+                        Label("Wrap Text",
+                              systemImage: viewModel.isTextWrapped ? "text.badge.minus" : "text.badge.plus")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .toggleStyle(.switch)
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Font Size: \(Int(viewModel.fontSize))pt")
+                        Slider(value: Binding(
+                            get: { Double(viewModel.fontSize) },
+                            set: { viewModel.fontSize = CGFloat($0) }
+                        ), in: 10...28)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(String(format: "Map Scale: %.2f×", viewModel.miniMapScale))
+                        Slider(value: Binding(
+                            get: { Double(viewModel.miniMapScale) },
+                            set: { viewModel.miniMapScale = CGFloat($0) }
+                        ), in: 0.08...0.4)
+                    }
+                }
+                .padding()
+                .frame(width: 220)
             }
         }
     }

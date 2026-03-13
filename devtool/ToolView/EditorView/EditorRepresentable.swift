@@ -22,80 +22,20 @@ struct EditorRepresentable: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let storage = NSTextStorage()
         let lm = NSLayoutManager()
-        let tc = NSTextContainer(size: NSSize(width: isTextWrapped ? 600 : 1e7, height: 1e7))
+        let tc = NSTextContainer(size: NSSize(width: isTextWrapped ? 600 : CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
         tc.widthTracksTextView = isTextWrapped
         tc.lineFragmentPadding = 6
         lm.addTextContainer(tc)
         storage.addLayoutManager(lm)
         
-        let textView = SolidTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400),
-                                     textContainer: tc)
-        textView.minSize = .zero
-        textView.maxSize  = NSSize(width: 1e7, height: 1e7)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = !isTextWrapped
-        textView.autoresizingMask  = isTextWrapped ? [.width] : [.height]
-        textView.isRichText  = false
-        textView.allowsUndo  = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticDataDetectionEnabled = false
-        textView.isAutomaticLinkDetectionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        textView.isGrammarCheckingEnabled = false
-        textView.isContinuousSpellCheckingEnabled = false
+        let textView = setupTextView(with: tc, font: defaultFont, textColor: NSColor.labelColor, bgColor: NSColor.textBackgroundColor)
+        storage.setAttributedString(NSAttributedString(string: text, attributes: [.font: defaultFont, .foregroundColor: NSColor.labelColor]))
         
-        let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        let fgColor = NSColor.labelColor
-        let bgColor = NSColor.textBackgroundColor
-        
-        textView.font  = font
-        textView.drawsBackground = true
-        textView.backgroundColor = bgColor
-        textView.textColor = fgColor
-        textView.insertionPointColor = fgColor
-        textView.selectedTextAttributes = [.backgroundColor: NSColor.selectedTextBackgroundColor]
-        textView.typingAttributes = [.font: font, .foregroundColor: fgColor]
-        
-        storage.setAttributedString(NSAttributedString(
-            string: text,
-            attributes: [.font: font, .foregroundColor: fgColor]
-        ))
-        
-        let sv = SolidScrollView()
-        sv.borderType = .noBorder
-        sv.hasVerticalScroller = true
-        sv.hasHorizontalScroller = !isTextWrapped
-        sv.autohidesScrollers = true
-        sv.drawsBackground = true
-        sv.backgroundColor = bgColor
-        sv.wantsLayer = true
-        sv.layer?.masksToBounds = true
-        
-        let clip = FlippedClipView()
-        clip.drawsBackground = true
-        clip.backgroundColor = bgColor
-        sv.contentView = clip
-        sv.documentView = textView
-        
+        let sv = setupScrollView(with: textView, bgColor: NSColor.textBackgroundColor)
         let ruler = LineNumberRulerView(textView: textView)
-        sv.hasVerticalRuler = true
-        sv.rulersVisible = true
         sv.verticalRulerView = ruler
         
-        sv.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            context.coordinator,
-            selector: #selector(Coordinator.textChanged(_:)),
-            name: NSText.didChangeNotification, object: textView)
-        NotificationCenter.default.addObserver(
-            context.coordinator,
-            selector: #selector(Coordinator.scrolled(_:)),
-            name: NSView.boundsDidChangeNotification, object: sv.contentView)
-        NotificationCenter.default.addObserver(
-            context.coordinator,
-            selector: #selector(Coordinator.selectionChanged(_:)),
-            name: NSTextView.didChangeSelectionNotification, object: textView)
+        setupObservers(context: context, textView: textView, scrollView: sv)
         
         context.coordinator.tv = textView
         context.coordinator.sv = sv
@@ -110,8 +50,14 @@ struct EditorRepresentable: NSViewRepresentable {
             guard let tv = textView, let sv = sv else { return }
             lm.ensureLayout(for: tc)
             tv.sizeToFit()
-            sv.contentView.scroll(to: .zero)
+            if let docView = sv.documentView { docView.scroll(NSPoint(x: 0, y: 0)) }
             sv.reflectScrolledClipView(sv.contentView)
+            
+            DispatchQueue.main.async {
+                tv.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                sv.contentView.bounds.origin = .zero
+                sv.reflectScrolledClipView(sv.contentView)
+            }
             ruler?.invalidateLineCache()
             ruler?.needsDisplay = true
         }
@@ -157,19 +103,21 @@ struct EditorRepresentable: NSViewRepresentable {
         if isTextWrapped {
             let w = max(sv.contentSize.width - 2, 100)
             if abs(tc.containerSize.width - w) > 4 {
-                tc.containerSize = NSSize(width: w, height: 1e7)
+                tc.containerSize = NSSize(width: w, height: CGFloat.greatestFiniteMagnitude)
                 lm.ensureLayout(for: tc); tv.sizeToFit()
             }
             tc.widthTracksTextView = true
             tv.isHorizontallyResizable = false
             tv.autoresizingMask = [.width]
+            tv.minSize = NSSize(width: 0, height: 0)
         } else {
-            if tc.containerSize.width != 1e7 {
-                tc.containerSize = NSSize(width: 1e7, height: 1e7)
+            if tc.containerSize.width != CGFloat.greatestFiniteMagnitude {
+                tc.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
             }
             tc.widthTracksTextView = false
             tv.isHorizontallyResizable = true
-            tv.autoresizingMask = [.height]
+            tv.autoresizingMask = [.width, .height]
+            tv.minSize = NSSize(width: sv.contentSize.width, height: sv.contentSize.height)
             lm.ensureLayout(for: tc); tv.sizeToFit()
         }
         
@@ -202,7 +150,14 @@ struct EditorRepresentable: NSViewRepresentable {
             scheduleAutosave()
         }
         
-        @objc func scrolled(_ n: Notification) { ruler?.needsDisplay = true }
+        @objc func scrolled(_ n: Notification) { 
+            ruler?.needsDisplay = true
+            guard !parent.isTextWrapped, let sv = sv, let tv = tv else { return }
+            let newMinSize = NSSize(width: sv.contentSize.width, height: sv.contentSize.height)
+            if tv.minSize != newMinSize {
+                tv.minSize = newMinSize
+            }
+        }
         
         @objc func selectionChanged(_ n: Notification) { ruler?.needsDisplay = true }
         
@@ -229,5 +184,76 @@ struct EditorRepresentable: NSViewRepresentable {
                 print("ERROR SAVE!!!")
             }
         }
+    }
+}
+
+// MARK: - Setup Helpers
+private extension EditorRepresentable {
+    
+    var defaultFont: NSFont {
+        NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+    }
+    
+    func setupTextView(with tc: NSTextContainer, font: NSFont, textColor: NSColor, bgColor: NSColor) -> SolidTextView {
+        let textView = SolidTextView(frame: NSRect(x: 0, y: 0, width: isTextWrapped ? 600 : CGFloat.greatestFiniteMagnitude, height: 400),
+                                     textContainer: tc)
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = !isTextWrapped
+        textView.autoresizingMask = isTextWrapped ? [.width] : [.width, .height]
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticDataDetectionEnabled = false
+        textView.isAutomaticLinkDetectionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isGrammarCheckingEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+        
+        textView.font = font
+        textView.drawsBackground = true
+        textView.backgroundColor = bgColor
+        textView.textColor = textColor
+        textView.insertionPointColor = textColor
+        textView.selectedTextAttributes = [.backgroundColor: NSColor.selectedTextBackgroundColor]
+        textView.typingAttributes = [.font: font, .foregroundColor: textColor]
+        
+        return textView
+    }
+    
+    func setupScrollView(with textView: NSTextView, bgColor: NSColor) -> SolidScrollView {
+        let sv = SolidScrollView()
+        sv.borderType = .noBorder
+        sv.hasVerticalScroller = true
+        sv.hasHorizontalScroller = !isTextWrapped
+        sv.autohidesScrollers = true
+        sv.drawsBackground = true
+        sv.backgroundColor = bgColor
+        sv.wantsLayer = true
+        sv.layer?.masksToBounds = true
+        
+        let clip = FlippedClipView()
+        clip.drawsBackground = true
+        clip.backgroundColor = bgColor
+        sv.contentView = clip
+        sv.documentView = textView
+        
+        sv.hasVerticalRuler = true
+        sv.rulersVisible = true
+        sv.contentView.postsBoundsChangedNotifications = true
+        
+        return sv
+    }
+    
+    func setupObservers(context: Context, textView: NSTextView, scrollView: NSScrollView) {
+        let nc = NotificationCenter.default
+        nc.addObserver(context.coordinator, selector: #selector(Coordinator.textChanged(_:)),
+                       name: NSText.didChangeNotification, object: textView)
+        nc.addObserver(context.coordinator, selector: #selector(Coordinator.scrolled(_:)),
+                       name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+        nc.addObserver(context.coordinator, selector: #selector(Coordinator.selectionChanged(_:)),
+                       name: NSTextView.didChangeSelectionNotification, object: textView)
     }
 }
