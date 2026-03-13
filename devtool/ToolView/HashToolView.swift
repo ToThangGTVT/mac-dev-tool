@@ -9,8 +9,6 @@ struct HashToolView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
             editors
             Divider()
             footer
@@ -42,28 +40,12 @@ struct HashToolView: View {
         }
     }
     
-    // MARK: - Header
-    private var header: some View {
-        HStack(spacing: 16) {
-            Picker("Thuật toán", selection: $vm.algorithm) {
-                ForEach(HashAlgorithm.allCases) { alg in Text(alg.rawValue).tag(alg) }
-            }.frame(width: 200)
-            
-            Picker("Output", selection: $vm.outputFormat) {
-                ForEach(HashOutputFormat.allCases) { fmt in Text(fmt.rawValue).tag(fmt) }
-            }.frame(width: 200)
-            
-            Picker("Encoding", selection: $vm.stringEncoding) {
-                ForEach(TextEncoding.allCases) { enc in Text(enc.rawValue).tag(enc) }
-            }.frame(width: 140).disabled(vm.droppedFileURL != nil)
-            
-            Spacer()
-        }.padding(12)
-    }
+    // MARK: - Header (Removed - moved to Inspector)
+
 
     // MARK: - Editors
     private var editors: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VSplitView {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Input").font(.headline)
@@ -96,27 +78,67 @@ struct HashToolView: View {
                     Button("Clear", role: .destructive, action: vm.clearAll)
                 }
             }
-        }.padding(12).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(12)
+            .frame(minHeight: 100)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Output").font(.headline)
+                    Spacer()
+                    Button { PasteboardHelper.copy(vm.output) } label: { Image(systemName: "doc.on.doc").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Copy output")
+                }
+                TextEditor(text: Binding(get: { vm.output }, set: { _ in }))
+                    .font(.system(.body, design: .monospaced))
+                    .padding(8)
+                    .background(Color(NSColor.textBackgroundColor).opacity(0.5))
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+                HStack {
+                    Spacer()
+                    Button("Copy Output") { PasteboardHelper.copy(vm.output) }.disabled(vm.output.isEmpty)
+                }
+            }
+            .padding(12)
+            .frame(minHeight: 100)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var inspectorContent: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Output").font(.headline)
-                Spacer()
-                Button { PasteboardHelper.copy(vm.output) } label: { Image(systemName: "doc.on.doc").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Copy output")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Settings").font(.headline)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Thuật toán").font(.subheadline).foregroundColor(.secondary)
+                Picker("", selection: $vm.algorithm) {
+                    ForEach(HashAlgorithm.allCases) { alg in Text(alg.rawValue).tag(alg) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
             }
-            TextEditor(text: Binding(get: { vm.output }, set: { _ in }))
-                .font(.system(.body, design: .monospaced))
-                .padding(8)
-                .background(Color(NSColor.textBackgroundColor).opacity(0.5))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
-            HStack {
-                Spacer()
-                Button("Copy Output") { PasteboardHelper.copy(vm.output) }.disabled(vm.output.isEmpty)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Output Format").font(.subheadline).foregroundColor(.secondary)
+                Picker("", selection: $vm.outputFormat) {
+                    ForEach(HashOutputFormat.allCases) { fmt in Text(fmt.rawValue).tag(fmt) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
             }
-        }.padding(12)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Encoding").font(.subheadline).foregroundColor(.secondary)
+                Picker("", selection: $vm.stringEncoding) {
+                    ForEach(TextEncoding.allCases) { enc in Text(enc.rawValue).tag(enc) }
+                }
+                .disabled(vm.droppedFileURL != nil)
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+            
+            Spacer()
+        }
+        .padding(16)
     }
 
     // MARK: - Footer
