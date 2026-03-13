@@ -125,7 +125,10 @@ struct NotePadEditor: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { viewModel.activeTabID = tab.id }
+        .onTapGesture {
+            viewModel.activeTabID = tab.id
+            EditorScrollProxy.shared.invalidateRuler(for: tab.id)
+        }
         .contextMenu {
             Button("Close Tab") { viewModel.closeTab(tab) }
             Button("Close Other Tabs") { viewModel.closeOtherTabs(tab.id) }

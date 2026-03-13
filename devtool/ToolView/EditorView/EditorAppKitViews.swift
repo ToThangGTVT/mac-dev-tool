@@ -9,9 +9,13 @@ import AppKit
 final class EditorScrollProxy {
     static let shared = EditorScrollProxy()
     private var scrollViews: [UUID: NSScrollView] = [:]
+    private var rulers: [UUID: LineNumberRulerView] = [:]
     
-    func register(_ sv: NSScrollView, for tabID: UUID) {
+    func register(_ sv: NSScrollView, ruler: LineNumberRulerView? = nil, for tabID: UUID) {
         scrollViews[tabID] = sv
+        if let r = ruler {
+            rulers[tabID] = r
+        }
     }
     
     func scroll(toRatio ratio: CGFloat, tabID: UUID) {
@@ -21,6 +25,15 @@ final class EditorScrollProxy {
         let targetY = maxY * ratio
         sv.contentView.scroll(to: NSPoint(x: 0, y: targetY))
         sv.reflectScrolledClipView(sv.contentView)
+    }
+
+    func invalidateRuler(for tabID: UUID) {
+        DispatchQueue.main.async {
+            if let ruler = self.rulers[tabID] {
+                ruler.invalidateLineCache()
+                ruler.needsDisplay = true
+            }
+        }
     }
 }
 

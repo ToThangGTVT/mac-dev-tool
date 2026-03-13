@@ -140,7 +140,7 @@ struct EditorRepresentable: NSViewRepresentable {
         ruler.needsDisplay = true
         sv.reflectScrolledClipView(sv.contentView)
         
-        EditorScrollProxy.shared.register(sv, for: tabID)
+        EditorScrollProxy.shared.register(sv, ruler: ruler, for: tabID)
         context.coordinator.parent = self
         tv.needsDisplay = true
     }
