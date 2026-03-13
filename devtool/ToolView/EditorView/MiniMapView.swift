@@ -87,7 +87,7 @@ final class MiniMapView: NSView {
         lm.drawGlyphs(forGlyphRange: NSRange(location: 0, length: st.length), at: .zero)
         NSGraphicsContext.current?.restoreGraphicsState()
 
-        NSColor.separatorColor.withAlphaComponent(0.4).setStroke()
+        NSColor.separatorColor.withAlphaComponent(0).setStroke()
         let path = NSBezierPath()
         path.move(to: NSPoint(x: 0.5, y: 0))
         path.line(to: NSPoint(x: 0.5, y: bounds.height))
