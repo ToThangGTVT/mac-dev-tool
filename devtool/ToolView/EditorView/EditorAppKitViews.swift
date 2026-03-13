@@ -79,7 +79,9 @@ final class SolidTextView: NSTextView {
         let s = string as NSString
         let len = s.length
         if len == 0 {
-            let r = NSRect(x: 0, y: textContainerInset.height, width: bounds.width, height: 16)
+            let font = font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize)
+            let lineHeight = lm.defaultLineHeight(for: font)
+            let r = NSRect(x: 0, y: textContainerInset.height, width: bounds.width, height: lineHeight)
             currentLineColor.setFill(); r.fill(); return
         }
         
