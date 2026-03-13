@@ -12,43 +12,25 @@ struct Base64ToolView: View {
             Divider()
             footer
         }
-        .navigationTitle("Base64")
+        .navigationTitle(vm.algorithm.rawValue)
         .toolbar {
             ToolbarItemGroup {
-                Button {
-                    vm.performMainAction()
-                } label: {
-                    Label(vm.mode == .encode ? "Encode" : "Decode",
-                          systemImage: vm.mode == .encode ? "arrow.up.square" : "arrow.down.square")
+                Button { vm.performMainAction() } label: { 
+                    Label(vm.algorithm == .base64 ? (vm.mode == .encode ? "Encode" : "Decode") : (vm.mode == .encode ? "Hash" : "Verify"),
+                          systemImage: vm.algorithm == .base64 ? (vm.mode == .encode ? "arrow.up.square" : "arrow.down.square") : (vm.mode == .encode ? "shield.checkerboard" : "checkmark.shield"))
                 }
                 .keyboardShortcut(.return)
                 
-                Button {
-                    vm.swapMode()
-                } label: {
-                    Label("Swap", systemImage: "arrow.left.arrow.right")
+                if vm.algorithm == .base64 {
+                    Button { vm.swapMode() } label: { Label("Swap", systemImage: "arrow.left.arrow.right") }
                 }
                 
-                Button {
-                    PasteboardHelper.copy(vm.output)
-                } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
-                }
+                Button { PasteboardHelper.copy(vm.output) } label: { Label("Copy", systemImage: "doc.on.doc") }
                 .disabled(vm.output.isEmpty)
                 
-                Button {
-                    if let text = PasteboardHelper.paste() {
-                        vm.input = text
-                    }
-                } label: {
-                    Label("Paste", systemImage: "doc.on.clipboard")
-                }
+                Button { if let text = PasteboardHelper.paste() { vm.input = text } } label: { Label("Paste", systemImage: "doc.on.clipboard") }
                 
-                Button(role: .destructive) {
-                    vm.clearAll()
-                } label: {
-                    Label("Clear", systemImage: "trash")
-                }
+                Button(role: .destructive) { vm.clearAll() } label: { Label("Clear", systemImage: "trash") }
                 .keyboardShortcut("k", modifiers: [.command])
 
                 Spacer()
@@ -66,62 +48,57 @@ struct Base64ToolView: View {
         }
     }
     
-    // MARK: - Header
-    private var header: some View {
-        HStack(spacing: 16) {
-            Label("Configuration", systemImage: "gearshape")
-                .font(.headline)
-            
-            Text(vm.mode.rawValue)
-                .font(.subheadline)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.accentColor.opacity(0.1))
-                .cornerRadius(6)
-
-            Text(vm.stringEncoding.rawValue)
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            Spacer()
-        }
-        .padding(12)
-    }
-    
     // MARK: - Editors
     private var bodyEditors: some View {
-        VStack(spacing: 0) {
+        VSplitView {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Input").font(.headline)
-                    Spacer()
-                    Button { vm.input = "" } label: { Image(systemName: "xmark.circle").foregroundColor(.secondary) }
-                    .buttonStyle(.borderless).help("Clear input")
+                    if let url = vm.droppedFileURL {
+                        Spacer()
+                        Label(url.lastPathComponent, systemImage: "doc").lineLimit(1).truncationMode(.middle)
+                        Text("(\(vm.humanFileSize(bytes: vm.droppedFileSize)))").foregroundColor(.secondary)
+                        Button { vm.removeDroppedFile() } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Bỏ chọn file")
+                    } else {
+                        Spacer()
+                        Button { vm.input = "" } label: { Image(systemName: "xmark.circle").foregroundColor(.secondary) }.buttonStyle(.borderless).help("Clear input")
+                    }
                 }
                 
-                TextEditor(text: $vm.input)
+                TextEditor(text: Binding(get: { vm.input }, set: { if vm.droppedFileURL == nil { vm.input = $0 } }))
                     .font(.system(.body, design: .monospaced))
                     .padding(8)
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(isTargeted ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1))
+                    .disabled(vm.droppedFileURL != nil)
                     .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $isTargeted) { providers in
-                        DropHandler.handleTextDrop(providers: providers) { text in
-                            vm.input = text
-                        }
+                        vm.handleDrop(providers: providers)
                     }
                 
+                if vm.algorithm.isHash && vm.mode == .decode {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Target Hash (to compare)").font(.headline)
+                        TextField("Paste hash here...", text: $vm.targetHash)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                }
+                
                 HStack(spacing: 8) {
-                    Button(vm.mode == .encode ? "Encode" : "Decode", action: vm.performMainAction).buttonStyle(.borderedProminent)
-                    Button("Swap Mode", action: vm.swapMode)
-                    Button("Paste") { if let text = PasteboardHelper.paste() { vm.input = text } }
+                    if vm.algorithm == .base64 {
+                        Button(vm.mode == .encode ? "Encode" : "Decode", action: vm.performMainAction).buttonStyle(.borderedProminent)
+                        Button("Swap Mode", action: vm.swapMode)
+                    } else {
+                        Button(vm.mode == .encode ? "Hash" : "Verify", action: vm.performMainAction).buttonStyle(.borderedProminent)
+                    }
+                    Button("Paste") { if let text = PasteboardHelper.paste() { vm.input = text } }.disabled(vm.droppedFileURL != nil)
                     Spacer()
                     Button("Clear", role: .destructive, action: vm.clearAll)
                 }
             }
+            .frame(minWidth: 0)
             .padding(12)
-            
-            Divider()
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
@@ -144,8 +121,9 @@ struct Base64ToolView: View {
                 }
             }
             .padding(12)
+            .frame(minWidth: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minWidth: 1, maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Footer
@@ -153,15 +131,13 @@ struct Base64ToolView: View {
         HStack {
             if let err = vm.errorMessage {
                 Label(err, systemImage: "exclamationmark.triangle.fill").foregroundColor(.red)
-                if err.contains("Decode") && vm.mode == .encode {
-                    Button("Chuyển sang Decode") { vm.mode = .decode }
-                }
             } else {
-                Text(vm.mode == .encode ? "Encode chuỗi văn bản thành Base64." : "Decode Base64 thành chuỗi văn bản.")
+                Text(vm.algorithm == .base64 ?
+                     (vm.mode == .encode ? "Chuyển dữ liệu sang Base64." : "Chuyển Base64 sang dữ liệu.") :
+                     "Băm dữ liệu bằng thuật toán \(vm.algorithm.rawValue).")
                     .foregroundColor(.secondary)
             }
             Spacer()
         }
-        .padding(8)
     }
 }
